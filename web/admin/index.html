@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://ufjxykraeybvvoaxdopn.supabase.co wss://ufjxykraeybvvoaxdopn.supabase.co; img-src 'self' data:; frame-ancestors 'none'">
+<title>หลังบ้าน | Mc Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f5f1; --card:#fff; --ink:#1d2321; --muted:#66706c; --line:#e3e1da; --soft:#efede7;
+    --brand:#1f5c4a; --brand-ink:#fff; --accent:#a9822a; --danger:#b3261e; --ok:#1f7a4a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#121614; --card:#1b201e; --ink:#eef1ef; --muted:#9aa49f; --line:#2c3330; --soft:#232926;
+      --brand:#5fb394; --brand-ink:#0d1210; --accent:#d9b766; --danger:#ef8a82; --ok:#6fcf97; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Thai",system-ui,sans-serif;font-size:15px;line-height:1.5}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;letter-spacing:.02em}
+  [hidden]{display:none!important}
+  button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:10px 14px;font-weight:600;background:var(--brand);color:var(--brand-ink)}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button.danger{background:transparent;color:var(--danger);border:1px solid color-mix(in srgb,var(--danger) 40%,transparent)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;outline:none}
+  input:focus{border-color:var(--brand)}
+  label{display:block;font-size:13.5px;font-weight:500;margin:12px 0 6px}
+
+  /* auth */
+  .auth{min-height:100vh;display:grid;place-items:center;padding:16px}
+  .auth .box{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 20px}
+  .auth h1{font-size:19px;margin:0 0 4px}
+  .auth p{color:var(--muted);font-size:13.5px;margin:0 0 8px}
+  .auth button{width:100%;margin-top:16px}
+  .msg{font-size:13.5px;margin-top:10px;color:var(--danger);min-height:1em}
+  .qr{display:grid;place-items:center;background:#fff;border-radius:12px;padding:12px;margin:12px 0}
+  .qr img{width:180px;height:180px}
+  .secret{font-size:12.5px;word-break:break-all;background:var(--soft);padding:8px 10px;border-radius:8px}
+  .code{font-size:22px;text-align:center;letter-spacing:.4em}
+
+  /* app */
+  .top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .top .in{max-width:1100px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px}
+  .mark{width:32px;height:32px;border-radius:9px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:600;font-size:14px}
+  .top b{font-size:15px}
+  .top .sp{flex:1}
+  .top button{padding:7px 12px;font-size:13.5px}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px 16px 48px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  @media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .stat span{font-size:12.5px;color:var(--muted)}
+  .stat b{display:block;font-size:26px;font-weight:600;margin-top:2px}
+  .stat.hl b{color:var(--accent)}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .tabs{display:flex;gap:4px;background:var(--soft);padding:4px;border-radius:12px}
+  .tabs button{background:transparent;color:var(--muted);padding:7px 12px;font-size:13.5px;border-radius:9px}
+  .tabs button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .bar input{flex:1;min-width:180px;padding:9px 12px}
+  .list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .item{display:flex;align-items:center;gap:12px;padding:13px 14px;border-top:1px solid var(--line);cursor:pointer}
+  .item:first-child{border-top:0}
+  .item:hover{background:var(--soft)}
+  .av{width:38px;height:38px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-weight:600;color:var(--brand);flex:none}
+  .item .nm{font-weight:600}
+  .item .meta{font-size:12.5px;color:var(--muted)}
+  .item .grow{flex:1;min-width:0}
+  .pill{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:500;white-space:nowrap}
+  .p-pending{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+  .p-active{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+  .p-inactive{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
+  .empty{padding:32px;text-align:center;color:var(--muted)}
+
+  /* drawer */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--bg);z-index:11;overflow:auto;border-left:1px solid var(--line);padding:0 0 32px}
+  .dh{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .dh h2{font-size:17px;margin:0;flex:1}
+  .sec{margin:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .sec h3{font-size:13px;color:var(--muted);font-weight:500;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
+  dl{display:grid;grid-template-columns:120px 1fr;gap:6px 10px;margin:0;font-size:14px}
+  dt{color:var(--muted)} dd{margin:0;word-break:break-word}
+  .nid{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .nid button{padding:5px 10px;font-size:12.5px}
+  .acts{display:flex;gap:8px;flex-wrap:wrap}
+  .acts button{flex:1}
+  .log{font-size:13px}
+  .log div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+  .log div:first-child{border-top:0}
+  .log span:last-child{color:var(--muted);white-space:nowrap}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:20}
+</style>
+</head>
+<body>
+
+<!-- ===== ล็อกอิน ===== -->
+<section id="v-login" class="auth" hidden>
+  <form class="box" id="f-login">
+    <h1>หลังบ้าน Mc Service</h1>
+    <p>สำหรับผู้ดูแลระบบเท่านั้น</p>
+    <label for="email">อีเมล</label><input id="email" type="email" autocomplete="username" required>
+    <label for="pw">รหัสผ่าน</label><input id="pw" type="password" autocomplete="current-password" required>
+    <button type="submit">เข้าสู่ระบบ</button>
+    <div class="msg" id="m-login"></div>
+  </form>
+</section>
+
+<!-- ===== ตั้งค่า 2FA ครั้งแรก ===== -->
+<section id="v-enroll" class="auth" hidden>
+  <form class="box" id="f-enroll">
+    <h1>ตั้งค่ายืนยันตัวตน 2 ชั้น</h1>
+    <p>สแกน QR ด้วยแอป Google Authenticator, Microsoft Authenticator หรือแอปรหัสผ่านใน iPhone แล้วกรอกรหัส 6 หลัก</p>
+    <div class="qr"><img id="qr" alt="QR code"></div>
+    <p>หรือกรอกรหัสนี้ในแอปเอง</p>
+    <div class="secret mono" id="secret"></div>
+    <label for="code-e">รหัส 6 หลัก</label>
+    <input id="code-e" class="code mono" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+    <button type="submit">ยืนยัน</button>
+    <div class="msg" id="m-enroll"></div>
+  </form>
+</section>
+
+<!-- ===== ยืนยัน 2FA ===== -->
+<section id="v-mfa" class="auth" hidden>
+  <form class="box" id="f-mfa">
+    <h1>ยืนยันตัวตน</h1>
+    <p>กรอกรหัส 6 หลักจากแอป Authenticator</p>
+    <input id="code-m" class="code mono" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+    <button type="submit">ยืนยัน</button>
+    <button type="button" class="ghost" id="b-cancel-mfa">ออกจากระบบ</button>
+    <div class="msg" id="m-mfa"></div>
+  </form>
+</section>
+
+<!-- ===== หน้าหลัก ===== -->
+<section id="v-app" hidden>
+  <div class="top"><div class="in">
+    <div class="mark">Mc</div><b>หลังบ้าน</b><span class="sp"></span>
+    <button class="ghost" id="b-refresh">รีเฟรช</button>
+    <button class="ghost" id="b-logout">ออก</button>
+  </div></div>
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat hl"><span>รออนุมัติ</span><b id="s-pending">–</b></div>
+      <div class="stat"><span>ลูกค้าใช้งานอยู่</span><b id="s-active">–</b></div>
+      <div class="stat"><span>ระงับ</span><b id="s-inactive">–</b></div>
+      <div class="stat"><span>เอกสารรอตรวจ</span><b id="s-docs">–</b></div>
+    </div>
+    <div class="bar">
+      <div class="tabs" id="tabs">
+        <button data-s="pending" class="on">รออนุมัติ</button>
+        <button data-s="active">ใช้งาน</button>
+        <button data-s="inactive">ระงับ</button>
+        <button data-s="all">ทั้งหมด</button>
+      </div>
+      <input id="q" type="search" placeholder="ค้นหาชื่อ เบอร์โทร รหัสลูกค้า">
+    </div>
+    <div class="list" id="list"><div class="empty">กำลังโหลด…</div></div>
+  </div>
+</section>
+
+<!-- ===== รายละเอียดลูกค้า ===== -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden>
+  <div class="dh"><h2 id="d-name"></h2><button class="ghost" id="b-close">ปิด</button></div>
+  <div class="sec">
+    <h3>ข้อมูลผู้เสียภาษี</h3>
+    <dl id="d-info"></dl>
+  </div>
+  <div class="sec">
+    <h3>สถานะ</h3>
+    <div class="acts" id="d-acts"></div>
+  </div>
+  <div class="sec"><h3>ความยินยอม (PDPA)</h3><div class="log" id="d-consents"></div></div>
+  <div class="sec"><h3>ประวัติการเข้าถึง / แก้ไข</h3><div class="log" id="d-audit"></div></div>
+</aside>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const SUPABASE_URL = "https://ufjxykraeybvvoaxdopn.supabase.co";
+const PUBLISHABLE_KEY = "sb_publishable_ONM6TS_I1XST5qqHTzjB5g_3p5871L7";
+const IDLE_MINUTES = 15;
+
+// เก็บ session ใน sessionStorage: ปิดแท็บ = ออกจากระบบ
+let store; try { sessionStorage.setItem("_t","1"); sessionStorage.removeItem("_t"); store = sessionStorage; } catch { store = undefined; }
+const sb = supabase.createClient(SUPABASE_URL, PUBLISHABLE_KEY, {
+  auth: { storage: store, persistSession: !!store, autoRefreshToken: true, detectSessionInUrl: false },
+});
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const VIEWS = ["v-login","v-enroll","v-mfa","v-app"];
+function show(id){ VIEWS.forEach((v) => $(v).hidden = v !== id); }
+function toast(t){ const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => el.hidden = true, 2600); }
+const maskNid = (l4) => l4 && l4.length === 4 ? `x-xxxx-xxxx${l4[0]}-${l4.slice(1,3)}-${l4[3]}` : "–";
+const fmtDate = (d) => d ? new Date(d).toLocaleString("th-TH", { dateStyle:"medium", timeStyle:"short" }) : "–";
+const STATUS = { pending:"รออนุมัติ", active:"ใช้งาน", inactive:"ระงับ" };
+const MARITAL = { single:"โสด", married:"สมรส", divorced:"หย่า", widowed:"หม้าย" };
+const CONSENT = { tax_service:"ใช้ข้อมูลเพื่อบริการภาษี", cross_border_storage:"เก็บข้อมูลที่สิงคโปร์", marketing_insurance:"รับคำแนะนำประกัน" };
+const ACTION = { insert:"สร้าง", update:"แก้ไข", delete:"ลบ", view_pii:"ดูเลข ปชช.", download:"ดาวน์โหลด" };
+
+// ---------- auth flow ----------
+async function route(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return show("v-login");
+  const { data: st, error } = await sb.rpc("admin_status");
+  if (error || st === "not_admin") { await sb.auth.signOut(); $("m-login").textContent = "บัญชีนี้ไม่มีสิทธิ์ผู้ดูแล"; return show("v-login"); }
+  if (st === "need_mfa") {
+    const { data: f } = await sb.auth.mfa.listFactors();
+    const verified = (f?.totp || []).find((x) => x.status === "verified");
+    if (verified) { route.factorId = verified.id; show("v-mfa"); $("code-m").focus(); return; }
+    return startEnroll();
+  }
+  show("v-app"); loadAll();
+}
+
+$("f-login").onsubmit = async (e) => {
+  e.preventDefault(); $("m-login").textContent = "";
+  const btn = e.submitter; btn.disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pw").value });
+  btn.disabled = false; $("pw").value = "";
+  if (error) { $("m-login").textContent = "อีเมลหรือรหัสผ่านไม่ถูกต้อง"; return; }
+  route();
+};
+
+async function startEnroll(){
+  // ล้าง factor ที่ยังไม่ยืนยันค้างไว้
+  const { data: f } = await sb.auth.mfa.listFactors();
+  for (const x of (f?.all || []).filter((x) => x.status !== "verified")) await sb.auth.mfa.unenroll({ factorId: x.id });
+  const { data, error } = await sb.auth.mfa.enroll({ factorType: "totp", friendlyName: "Mc Service Admin" });
+  if (error) { $("m-login").textContent = "ตั้งค่า 2FA ไม่สำเร็จ: " + error.message; return show("v-login"); }
+  route.factorId = data.id;
+  $("qr").src = data.totp.qr_code;
+  $("secret").textContent = data.totp.secret;
+  show("v-enroll"); $("code-e").focus();
+}
+
+async function verify(code, msgEl){
+  const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: route.factorId, code: code.trim() });
+  if (error) { msgEl.textContent = "รหัสไม่ถูกต้อง ลองใหม่"; return; }
+  msgEl.textContent = ""; route();
+}
+$("f-enroll").onsubmit = (e) => { e.preventDefault(); verify($("code-e").value, $("m-enroll")); };
+$("f-mfa").onsubmit = (e) => { e.preventDefault(); verify($("code-m").value, $("m-mfa")); $("code-m").value = ""; };
+$("b-cancel-mfa").onclick = logout;
+$("b-logout").onclick = logout;
+async function logout(){ await sb.auth.signOut(); closeDrawer(); show("v-login"); }
+
+// ออกจากระบบอัตโนมัติเมื่อไม่ใช้งาน
+let idle;
+function resetIdle(){ clearTimeout(idle); idle = setTimeout(() => { logout(); $("m-login").textContent = "ออกจากระบบอัตโนมัติเพราะไม่ได้ใช้งาน"; }, IDLE_MINUTES * 60000); }
+["click","keydown","touchstart","scroll"].forEach((ev) => addEventListener(ev, resetIdle, { passive: true }));
+resetIdle();
+
+// ---------- data ----------
+let filter = "pending", clients = [];
+async function loadAll(){ loadSummary(); loadList(); }
+async function loadSummary(){
+  const { data } = await sb.rpc("admin_summary");
+  if (!data) return;
+  $("s-pending").textContent = data.pending; $("s-active").textContent = data.active;
+  $("s-inactive").textContent = data.inactive; $("s-docs").textContent = data.docs_pending;
+}
+async function loadList(){
+  let q = sb.from("clients").select("id, client_code, title, first_name, last_name, phone, status, created_at, national_id_last4").order("created_at", { ascending: false }).limit(500);
+  if (filter !== "all") q = q.eq("status", filter);
+  const { data, error } = await q;
+  if (error) { $("list").innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${esc(error.message)}</div>`; return; }
+  clients = data; renderList();
+}
+function renderList(){
+  const t = $("q").value.trim().toLowerCase();
+  const rows = clients.filter((c) => !t || [c.first_name, c.last_name, c.phone, c.client_code].some((v) => (v || "").toLowerCase().includes(t)));
+  if (!rows.length) { $("list").innerHTML = `<div class="empty">ไม่มีรายการ</div>`; return; }
+  $("list").innerHTML = rows.map((c) => `
+    <div class="item" data-id="${c.id}">
+      <div class="av">${esc((c.first_name || "?")[0])}</div>
+      <div class="grow"><div class="nm">${esc(c.title || "")}${esc(c.first_name)} ${esc(c.last_name)}</div>
+        <div class="meta">${esc(c.client_code || "ยังไม่มีรหัส")} · ${esc(c.phone || "–")} · สมัคร ${fmtDate(c.created_at)}</div></div>
+      <span class="pill p-${c.status}">${STATUS[c.status]}</span>
+    </div>`).join("");
+}
+$("list").onclick = (e) => { const it = e.target.closest(".item"); if (it) openClient(it.dataset.id); };
+$("tabs").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("tabs").children].forEach((x) => x.classList.toggle("on", x === b));
+  filter = b.dataset.s; loadList();
+};
+$("q").oninput = renderList;
+$("b-refresh").onclick = loadAll;
+
+// ---------- รายละเอียด ----------
+let current = null;
+async function openClient(id){
+  const { data: c, error } = await sb.from("clients").select("id, client_code, title, first_name, last_name, national_id_last4, birth_date, phone, email, address, marital_status, status, line_user_id, created_at, updated_at").eq("id", id).single();
+  if (error) return toast("โหลดข้อมูลไม่สำเร็จ");
+  current = c;
+  $("d-name").textContent = `${c.title || ""}${c.first_name} ${c.last_name}`;
+  $("d-info").innerHTML = `
+    <dt>รหัสลูกค้า</dt><dd>${esc(c.client_code || "–")}</dd>
+    <dt>เลข ปชช.</dt><dd><div class="nid"><span class="mono" id="nid">${maskNid(c.national_id_last4)}</span>
+      ${c.national_id_last4 ? `<button class="ghost" id="b-nid">แสดงเลขเต็ม</button>` : ""}</div></dd>
+    <dt>วันเกิด</dt><dd>${c.birth_date ? new Date(c.birth_date).toLocaleDateString("th-TH", { dateStyle:"long" }) : "–"}</dd>
+    <dt>สถานภาพ</dt><dd>${MARITAL[c.marital_status] || "–"}</dd>
+    <dt>เบอร์โทร</dt><dd>${esc(c.phone || "–")}</dd>
+    <dt>อีเมล</dt><dd>${esc(c.email || "–")}</dd>
+    <dt>ที่อยู่</dt><dd>${esc(c.address || "–")}</dd>
+    <dt>LINE</dt><dd>${c.line_user_id ? "เชื่อมแล้ว" : "–"}</dd>
+    <dt>สมัครเมื่อ</dt><dd>${fmtDate(c.created_at)}</dd>`;
+  const nidBtn = $("b-nid");
+  if (nidBtn) nidBtn.onclick = revealNid;
+  renderActs();
+  $("drawer").hidden = $("scrim").hidden = false;
+  loadSide(id);
+}
+function renderActs(){
+  const s = current.status, a = [];
+  if (s !== "active") a.push(`<button data-to="active">${s === "pending" ? "อนุมัติลูกค้า" : "เปิดใช้งาน"}</button>`);
+  if (s !== "inactive") a.push(`<button class="danger" data-to="inactive">ระงับ</button>`);
+  $("d-acts").innerHTML = a.join("");
+}
+$("d-acts").onclick = async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const to = b.dataset.to;
+  if (to === "inactive" && !confirm("ระงับลูกค้ารายนี้?")) return;
+  b.disabled = true;
+  const patch = { status: to };
+  if (to === "active" && !current.client_code) patch.client_code = await nextCode();
+  const { error } = await sb.from("clients").update(patch).eq("id", current.id);
+  b.disabled = false;
+  if (error) return toast("บันทึกไม่สำเร็จ: " + error.message);
+  toast(to === "active" ? "อนุมัติแล้ว" : "ระงับแล้ว");
+  Object.assign(current, patch); renderActs(); loadAll(); openClient(current.id);
+};
+async function nextCode(){
+  const y = (new Date().getFullYear() + 543) % 100;
+  const { data } = await sb.from("clients").select("client_code").like("client_code", `MC${y}-%`).order("client_code", { ascending: false }).limit(1);
+  const n = data?.[0] ? parseInt(data[0].client_code.split("-")[1], 10) + 1 : 1;
+  return `MC${y}-${String(n).padStart(4, "0")}`;
+}
+async function revealNid(){
+  if (!confirm("การดูเลขประจำตัวประชาชนเต็มจะถูกบันทึกใน audit log ต้องการดำเนินการต่อ?")) return;
+  const { data, error } = await sb.rpc("get_national_id", { p_client: current.id });
+  if (error || !data) return toast("ไม่สามารถแสดงได้");
+  const d = data;
+  $("nid").textContent = `${d[0]}-${d.slice(1,5)}-${d.slice(5,10)}-${d.slice(10,12)}-${d[12]}`;
+  $("b-nid").remove();
+  // ซ่อนกลับอัตโนมัติหลัง 30 วินาที
+  const id = current.id;
+  setTimeout(() => { if (current?.id === id && $("nid")) $("nid").textContent = maskNid(d.slice(9)); }, 30000);
+  loadSide(current.id);
+}
+async function loadSide(id){
+  const [{ data: cs }, { data: au }] = await Promise.all([
+    sb.from("consents").select("consent_type, granted, version, granted_at, revoked_at").eq("client_id", id).order("granted_at", { ascending: false }),
+    sb.from("audit_logs").select("action, table_name, created_at, actor_id").eq("client_id", id).order("created_at", { ascending: false }).limit(30),
+  ]);
+  $("d-consents").innerHTML = (cs || []).map((c) => `<div><span>${c.granted && !c.revoked_at ? "✅" : "⛔"} ${esc(CONSENT[c.consent_type] || c.consent_type)}</span><span>${esc(c.version)}</span></div>`).join("") || `<div><span>ไม่มีข้อมูล</span></div>`;
+  $("d-audit").innerHTML = (au || []).map((a) => `<div><span>${esc(ACTION[a.action] || a.action)} · ${esc(a.table_name || "")}${a.actor_id ? "" : " (ระบบ)"}</span><span>${fmtDate(a.created_at)}</span></div>`).join("") || `<div><span>ไม่มีข้อมูล</span></div>`;
+}
+function closeDrawer(){ $("drawer").hidden = $("scrim").hidden = true; current = null; }
+$("b-close").onclick = closeDrawer; $("scrim").onclick = closeDrawer;
+addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+route();
+</script>
+</body>
+</html>
