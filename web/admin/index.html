@@ -327,22 +327,15 @@ function renderActs(){
 $("d-acts").onclick = async (e) => {
   const b = e.target.closest("button"); if (!b) return;
   const to = b.dataset.to;
-  if (to === "inactive" && !confirm("ระงับลูกค้ารายนี้?")) return;
+  if (to === "inactive" && !confirm("ระงับลูกค้ารายนี้? ระบบจะแจ้งลูกค้าทาง LINE")) return;
   b.disabled = true;
-  const patch = { status: to };
-  if (to === "active" && !current.client_code) patch.client_code = await nextCode();
-  const { error } = await sb.from("clients").update(patch).eq("id", current.id);
+  const { data, error } = await sb.functions.invoke("set-client-status", { body: { client_id: current.id, status: to } });
   b.disabled = false;
-  if (error) return toast("บันทึกไม่สำเร็จ: " + error.message);
-  toast(to === "active" ? "อนุมัติแล้ว" : "ระงับแล้ว");
-  Object.assign(current, patch); renderActs(); loadAll(); openClient(current.id);
+  if (error || !data?.ok) return toast("บันทึกไม่สำเร็จ");
+  const sent = data.notified ? " · แจ้งลูกค้าทาง LINE แล้ว" : " · ยังไม่ได้แจ้งทาง LINE";
+  toast((to === "active" ? `อนุมัติแล้ว (${data.client_code})` : "ระงับแล้ว") + sent);
+  loadAll(); openClient(current.id);
 };
-async function nextCode(){
-  const y = (new Date().getFullYear() + 543) % 100;
-  const { data } = await sb.from("clients").select("client_code").like("client_code", `MC${y}-%`).order("client_code", { ascending: false }).limit(1);
-  const n = data?.[0] ? parseInt(data[0].client_code.split("-")[1], 10) + 1 : 1;
-  return `MC${y}-${String(n).padStart(4, "0")}`;
-}
 async function revealNid(){
   if (!confirm("การดูเลขประจำตัวประชาชนเต็มจะถูกบันทึกใน audit log ต้องการดำเนินการต่อ?")) return;
   const { data, error } = await sb.rpc("get_national_id", { p_client: current.id });

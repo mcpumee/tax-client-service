@@ -1,6 +1,7 @@
 // ลงทะเบียนลูกค้าใหม่ (ต้องล็อกอินผ่าน line-auth ก่อน)
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { corsHeaders, json } from "../_shared/cors.ts";
+import { ADMIN_URL, card, pushLine } from "../_shared/line.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -79,6 +80,20 @@ Deno.serve(async (req) => {
     { client_id: client.id, consent_type: "cross_border_storage", version: CONSENT_VERSION, granted: true, channel: "liff" },
     { client_id: client.id, consent_type: "marketing_insurance", version: CONSENT_VERSION, granted: c.marketing_insurance === true, channel: "liff" },
   ]);
+
+  // แจ้ง admin ทาง LINE (ไม่รอผล ไม่ให้กระทบการลงทะเบียน)
+  const notifyAdmins = (async () => {
+    const { data: admins } = await admin.from("admins").select("line_user_id")
+      .eq("notify_new_client", true).not("line_user_id", "is", null);
+    for (const a of admins ?? []) {
+      await pushLine(admin, a.line_user_id!, [card("ลูกค้าใหม่รออนุมัติ", [
+        `${b.title ?? ""}${b.first_name.trim()} ${b.last_name.trim()}`,
+        `สมัครเมื่อ ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`,
+      ], { label: "เปิดหลังบ้าน", uri: ADMIN_URL })], { client_id: client.id, recipient: "admin", kind: "new_client" });
+    }
+  })();
+  // @ts-ignore EdgeRuntime มีใน Supabase Edge Functions
+  if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(notifyAdmins); else await notifyAdmins;
 
   return json(req, { ok: true, client_id: client.id, status: "pending" });
 });
