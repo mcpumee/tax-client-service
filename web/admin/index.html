@@ -141,6 +141,7 @@
   <div class="top"><div class="in">
     <div class="mark">Mc</div><b>หลังบ้าน</b><span class="sp"></span>
     <button class="ghost" id="b-refresh">รีเฟรช</button>
+    <button class="ghost" id="b-pw">รหัสผ่าน</button>
     <button class="ghost" id="b-logout">ออก</button>
   </div></div>
   <div class="wrap">
@@ -178,6 +179,19 @@
   <div class="sec"><h3>ความยินยอม (PDPA)</h3><div class="log" id="d-consents"></div></div>
   <div class="sec"><h3>ประวัติการเข้าถึง / แก้ไข</h3><div class="log" id="d-audit"></div></div>
 </aside>
+
+<!-- ===== เปลี่ยนรหัสผ่าน ===== -->
+<section id="v-pw" class="auth" hidden style="position:fixed;inset:0;z-index:30;background:color-mix(in srgb,var(--bg) 96%,transparent)">
+  <form class="box" id="f-pw">
+    <h1>เปลี่ยนรหัสผ่าน</h1>
+    <p>อย่างน้อย 12 ตัวอักษร ผสมตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข</p>
+    <label for="pw1">รหัสผ่านใหม่</label><input id="pw1" type="password" autocomplete="new-password" required>
+    <label for="pw2">ยืนยันรหัสผ่านใหม่</label><input id="pw2" type="password" autocomplete="new-password" required>
+    <button type="submit">บันทึกรหัสผ่านใหม่</button>
+    <button type="button" class="ghost" id="b-pw-cancel">ยกเลิก</button>
+    <div class="msg" id="m-pw"></div>
+  </form>
+</section>
 
 <div class="toast" id="toast" hidden></div>
 
@@ -359,6 +373,28 @@ async function loadSide(id){
 function closeDrawer(){ $("drawer").hidden = $("scrim").hidden = true; current = null; }
 $("b-close").onclick = closeDrawer; $("scrim").onclick = closeDrawer;
 addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+// ---------- เปลี่ยนรหัสผ่าน ----------
+$("b-pw").onclick = () => { $("f-pw").reset(); $("m-pw").textContent = ""; $("v-pw").hidden = false; $("pw1").focus(); };
+$("b-pw-cancel").onclick = () => { $("v-pw").hidden = true; };
+$("f-pw").onsubmit = async (e) => {
+  e.preventDefault();
+  const p1 = $("pw1").value, p2 = $("pw2").value, m = $("m-pw");
+  if (p1 !== p2) { m.textContent = "รหัสผ่านทั้งสองช่องไม่ตรงกัน"; return; }
+  if (p1.length < 12 || !/[a-z]/.test(p1) || !/[A-Z]/.test(p1) || !/\d/.test(p1)) {
+    m.textContent = "รหัสผ่านต้องยาวอย่างน้อย 12 ตัว และมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข"; return;
+  }
+  const btn = e.submitter; btn.disabled = true;
+  const { error } = await sb.auth.updateUser({ password: p1 });
+  btn.disabled = false; $("f-pw").reset();
+  if (error) {
+    m.textContent = /pwned|leak|weak/i.test(error.message) ? "รหัสผ่านนี้เคยรั่วไหลหรือเดาง่าย กรุณาใช้รหัสอื่น"
+      : /same/i.test(error.message) ? "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม"
+      : "เปลี่ยนรหัสผ่านไม่สำเร็จ: " + error.message;
+    return;
+  }
+  $("v-pw").hidden = true; toast("เปลี่ยนรหัสผ่านเรียบร้อย");
+};
 
 route();
 </script>
