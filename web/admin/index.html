@@ -93,6 +93,17 @@
   .log div:first-child{border-top:0}
   .log span:last-child{color:var(--muted);white-space:nowrap}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:20}
+
+  .docrow{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+  .docrow:first-child{border-top:0}
+  .docrow .g{flex:1;min-width:0;font-size:14px}
+  .docrow .g small{display:block;color:var(--muted);font-size:12.5px}
+  .docrow .g .rn{color:var(--danger);font-size:12.5px}
+  .docrow .btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .docrow .btns button{padding:6px 10px;font-size:12.5px}
+  .p-pending_review{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+  .p-confirmed{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+  .p-rejected{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
 </style>
 </head>
 <body>
@@ -149,7 +160,7 @@
       <div class="stat hl"><span>รออนุมัติ</span><b id="s-pending">–</b></div>
       <div class="stat"><span>ลูกค้าใช้งานอยู่</span><b id="s-active">–</b></div>
       <div class="stat"><span>ระงับ</span><b id="s-inactive">–</b></div>
-      <div class="stat"><span>เอกสารรอตรวจ</span><b id="s-docs">–</b></div>
+      <div class="stat hl" id="st-docs" style="cursor:pointer"><span>เอกสารรอตรวจ</span><b id="s-docs">–</b></div>
     </div>
     <div class="bar">
       <div class="tabs" id="tabs">
@@ -157,6 +168,7 @@
         <button data-s="active">ใช้งาน</button>
         <button data-s="inactive">ระงับ</button>
         <button data-s="all">ทั้งหมด</button>
+        <button data-s="docs">เอกสารรอตรวจ</button>
       </div>
       <input id="q" type="search" placeholder="ค้นหาชื่อ เบอร์โทร รหัสลูกค้า">
     </div>
@@ -176,6 +188,7 @@
     <h3>สถานะ</h3>
     <div class="acts" id="d-acts"></div>
   </div>
+  <div class="sec"><h3>เอกสาร</h3><div id="d-docs"><div class="log"><div><span>กำลังโหลด…</span></div></div></div></div>
   <div class="sec"><h3>ความยินยอม (PDPA)</h3><div class="log" id="d-consents"></div></div>
   <div class="sec"><h3>ประวัติการเข้าถึง / แก้ไข</h3><div class="log" id="d-audit"></div></div>
 </aside>
@@ -281,6 +294,7 @@ async function loadSummary(){
   $("s-inactive").textContent = data.inactive; $("s-docs").textContent = data.docs_pending;
 }
 async function loadList(){
+  if (filter === "docs") return loadPendingDocs();
   let q = sb.from("clients").select("id, client_code, title, first_name, last_name, phone, status, created_at, national_id_last4").order("created_at", { ascending: false }).limit(500);
   if (filter !== "all") q = q.eq("status", filter);
   const { data, error } = await q;
@@ -288,6 +302,7 @@ async function loadList(){
   clients = data; renderList();
 }
 function renderList(){
+  if (filter === "docs") return;
   const t = $("q").value.trim().toLowerCase();
   const rows = clients.filter((c) => !t || [c.first_name, c.last_name, c.phone, c.client_code].some((v) => (v || "").toLowerCase().includes(t)));
   if (!rows.length) { $("list").innerHTML = `<div class="empty">ไม่มีรายการ</div>`; return; }
@@ -363,6 +378,7 @@ async function revealNid(){
   loadSide(current.id);
 }
 async function loadSide(id){
+  loadClientDocs(id);
   const [{ data: cs }, { data: au }] = await Promise.all([
     sb.from("consents").select("consent_type, granted, version, granted_at, revoked_at").eq("client_id", id).order("granted_at", { ascending: false }),
     sb.from("audit_logs").select("action, table_name, created_at, actor_id").eq("client_id", id).order("created_at", { ascending: false }).limit(30),
@@ -395,6 +411,70 @@ $("f-pw").onsubmit = async (e) => {
   }
   $("v-pw").hidden = true; toast("เปลี่ยนรหัสผ่านเรียบร้อย");
 };
+
+// ---------- เอกสาร ----------
+const DOC_LABEL = { "50tawi":"50 ทวิ", insurance_cert:"เบี้ยประกัน", fund_cert:"กองทุน RMF/SSF/ThaiESG", mortgage_interest:"ดอกเบี้ยบ้าน",
+  donation:"เงินบริจาค", rental_contract:"สัญญาเช่า/ค่าเช่า", platform_report:"ยอดขายออนไลน์", statement:"Statement",
+  salary_slip:"สลิปเงินเดือน", receipt:"ใบเสร็จค่าใช้จ่าย", id_card:"บัตรประชาชน", house_reg:"ทะเบียนบ้าน", other:"อื่น ๆ" };
+const DOC_ST = { pending_review:"รอตรวจ", confirmed:"ตรวจแล้ว", rejected:"ให้ส่งใหม่" };
+const thY = (y) => y ? y + 543 : "–";
+let clientDocs = [];
+async function loadClientDocs(id){
+  const { data } = await sb.from("documents").select("id, tax_year, doc_type, file_path, status, review_note, created_at, original_name")
+    .eq("client_id", id).order("created_at", { ascending: false });
+  clientDocs = data || [];
+  $("d-docs").innerHTML = clientDocs.length ? clientDocs.map((d) => `
+    <div class="docrow" data-id="${d.id}">
+      <div class="g">${esc(DOC_LABEL[d.doc_type] || d.doc_type)} · ปี ${thY(d.tax_year)}
+        <small>${fmtDate(d.created_at)} · <span class="pill p-${d.status}">${DOC_ST[d.status]}</span></small>
+        ${d.status === "rejected" && d.review_note ? `<span class="rn">${esc(d.review_note)}</span>` : ""}</div>
+      <div class="btns">
+        <button class="ghost" data-a="view">เปิด</button>
+        ${d.status !== "confirmed" ? `<button data-a="confirmed">ผ่าน</button>` : ""}
+        ${d.status !== "rejected" ? `<button class="danger" data-a="rejected">ส่งใหม่</button>` : ""}
+      </div>
+    </div>`).join("") : `<div class="log"><div><span>ยังไม่มีเอกสาร</span></div></div>`;
+}
+$("d-docs").onclick = async (e) => {
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const d = clientDocs.find((x) => x.id === b.closest(".docrow").dataset.id); if (!d) return;
+  if (b.dataset.a === "view") {
+    const w = window.open("", "_blank");  // เปิดหน้าต่างทันทีกัน popup blocker บน iPhone
+    const { error: lErr } = await sb.rpc("log_document_view", { p_document: d.id });
+    if (lErr) { w?.close(); return toast("ไม่มีสิทธิ์เปิดไฟล์"); }
+    const { data, error } = await sb.storage.from("client-docs").createSignedUrl(d.file_path, 60);
+    if (error || !data?.signedUrl) { w?.close(); return toast("เปิดไฟล์ไม่สำเร็จ"); }
+    if (w) w.location = data.signedUrl; else location.href = data.signedUrl;
+    return;
+  }
+  let note = null;
+  if (b.dataset.a === "rejected") {
+    note = prompt("เหตุผลที่ให้ส่งใหม่ (ลูกค้าจะเห็นข้อความนี้)", "รูปไม่ชัด กรุณาถ่ายใหม่ให้เห็นตัวเลขครบ");
+    if (!note) return;
+  }
+  b.disabled = true;
+  const { data, error } = await sb.functions.invoke("review-document", { body: { document_id: d.id, status: b.dataset.a, note } });
+  b.disabled = false;
+  if (error || !data?.ok) return toast("บันทึกไม่สำเร็จ");
+  toast((b.dataset.a === "confirmed" ? "ยืนยันเอกสารแล้ว" : "แจ้งให้ส่งใหม่แล้ว") + (data.notified ? " · แจ้งลูกค้าทาง LINE แล้ว" : ""));
+  loadClientDocs(current.id); loadSummary();
+};
+
+// รายการเอกสารรอตรวจทั้งหมด
+async function loadPendingDocs(){
+  const { data, error } = await sb.from("documents")
+    .select("id, client_id, tax_year, doc_type, created_at, clients(first_name, last_name, client_code)")
+    .eq("status", "pending_review").order("created_at").limit(300);
+  if (error) { $("list").innerHTML = `<div class="empty">โหลดไม่สำเร็จ</div>`; return; }
+  $("list").innerHTML = data.length ? data.map((d) => `
+    <div class="item" data-id="${d.client_id}">
+      <div class="av">📄</div>
+      <div class="grow"><div class="nm">${esc(d.clients?.first_name || "")} ${esc(d.clients?.last_name || "")}</div>
+        <div class="meta">${esc(d.clients?.client_code || "")} · ${esc(DOC_LABEL[d.doc_type] || d.doc_type)} · ปี ${thY(d.tax_year)} · ${fmtDate(d.created_at)}</div></div>
+      <span class="pill p-pending_review">รอตรวจ</span>
+    </div>`).join("") : `<div class="empty">ไม่มีเอกสารรอตรวจ 🎉</div>`;
+}
+$("st-docs").onclick = () => [...$("tabs").children].find((x) => x.dataset.s === "docs")?.click();
 
 route();
 </script>

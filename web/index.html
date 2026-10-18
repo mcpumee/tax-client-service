@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.line-scdn.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://ufjxykraeybvvoaxdopn.supabase.co https://api.line.me https://liffsdk.line-scdn.net https://*.line.me; img-src 'self' data: https://profile.line-scdn.net">
-<title>ลงทะเบียนลูกค้า | Mc Service</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://ufjxykraeybvvoaxdopn.supabase.co wss://ufjxykraeybvvoaxdopn.supabase.co https://api.line.me https://liffsdk.line-scdn.net https://*.line.me; img-src 'self' data: blob: https://profile.line-scdn.net https://ufjxykraeybvvoaxdopn.supabase.co">
+<title>Mc Service | ภาษีบุคคลธรรมดา</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#f6f5f1; --card:#ffffff; --ink:#1d2321; --muted:#66706c; --line:#e3e1da;
@@ -19,7 +20,7 @@
       --brand:#5fb394; --brand-ink:#0d1210; --accent:#d9b766; --danger:#ef8a82; --ok:#6fcf97; }
   }
   *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Thai",system-ui,sans-serif;font-size:16px;line-height:1.55}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Thai",system-ui,sans-serif;font-size:16px;line-height:1.55}
   main{max-width:520px;margin:0 auto;padding:20px 16px calc(32px + env(safe-area-inset-bottom))}
   header{display:flex;align-items:center;gap:10px;margin-bottom:18px}
   .mark{width:36px;height:36px;border-radius:10px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:600}
@@ -63,6 +64,37 @@
   @keyframes s{to{transform:rotate(360deg)}}
   .lock{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);justify-content:center;margin-top:14px}
   [hidden]{display:none!important}
+
+  /* หน้าหลักลูกค้า */
+  .hello{display:flex;align-items:center;gap:12px}
+  .hello .code{font-size:13px;color:var(--muted)}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:left;color:var(--ink);font-weight:600;margin:0;display:flex;flex-direction:column;gap:6px}
+  .tile .em{font-size:24px}
+  .tile small{font-weight:400;color:var(--muted);font-size:12.5px}
+  .tile.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px}
+  .back{background:transparent;color:var(--brand);width:auto;padding:0;margin:0 0 10px;font-weight:500}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{width:auto;margin:0;padding:8px 12px;font-size:14px;font-weight:500;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:999px}
+  .chip.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .drop{border:1.5px dashed var(--line);border-radius:14px;padding:18px;text-align:center;color:var(--muted);font-size:14px}
+  .drop img{max-width:100%;max-height:220px;border-radius:10px;margin-top:8px}
+  .pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .pick button{margin:0}
+  .doc{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
+  .doc:first-child{border-top:0}
+  .doc .ic{width:40px;height:40px;border-radius:10px;background:var(--bg);display:grid;place-items:center;font-size:20px;flex:none}
+  .doc .g{flex:1;min-width:0}
+  .doc b{display:block;font-size:14.5px;font-weight:600}
+  .doc small{color:var(--muted);font-size:12.5px}
+  .st{font-size:12px;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .st-pending_review{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+  .st-confirmed{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+  .st-rejected{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+  .note{font-size:12.5px;color:var(--danger);margin-top:2px}
+  dl.info{display:grid;grid-template-columns:110px 1fr;gap:8px 10px;margin:0;font-size:14.5px}
+  dl.info dt{color:var(--muted)} dl.info dd{margin:0;word-break:break-word}
+  .empty{color:var(--muted);text-align:center;padding:20px 0;font-size:14px}
 </style>
 </head>
 <body>
@@ -137,6 +169,57 @@
     <div class="lock">🔒 เลขประจำตัวประชาชนถูกเข้ารหัสทันทีที่บันทึก</div>
   </section>
 
+  <!-- ===== หน้าหลักลูกค้า ===== -->
+  <section id="v-home" hidden>
+    <div class="card hello">
+      <div class="mark" style="width:44px;height:44px;border-radius:50%" id="h-av">?</div>
+      <div><h2 id="h-name" style="margin:0"></h2><div class="code" id="h-code"></div></div>
+    </div>
+    <div class="tiles">
+      <button class="tile wide" data-go="upload"><span class="em">📤</span><span>ส่งเอกสาร<br><small>ถ่ายรูปหรือเลือกไฟล์ 50 ทวิ ใบลดหย่อน ฯลฯ</small></span></button>
+      <button class="tile" data-go="docs"><span class="em">🗂️</span>เอกสารของฉัน<small id="h-docs">–</small></button>
+      <button class="tile" data-go="me"><span class="em">👤</span>ข้อมูลของฉัน<small>ข้อมูลผู้เสียภาษี</small></button>
+    </div>
+  </section>
+
+  <!-- ===== ส่งเอกสาร ===== -->
+  <section id="v-upload" class="card" hidden>
+    <button class="back" data-go="home">‹ กลับ</button>
+    <h2>ส่งเอกสาร</h2>
+    <p class="sub">เอกสารจะถูกจัดเก็บแบบเข้ารหัส เฉพาะท่านและผู้ให้บริการเท่านั้นที่เปิดดูได้</p>
+    <label>ปีภาษี</label>
+    <div class="chips" id="u-year"></div>
+    <label>ประเภทเอกสาร</label>
+    <div class="chips" id="u-type"></div>
+    <label>ไฟล์ <small>(รูปภาพหรือ PDF ไม่เกิน 20 MB)</small></label>
+    <div class="drop" id="u-drop">ยังไม่ได้เลือกไฟล์</div>
+    <div class="pick">
+      <button type="button" class="ghost" id="u-cam">📷 ถ่ายรูป</button>
+      <button type="button" class="ghost" id="u-file">📎 เลือกไฟล์</button>
+    </div>
+    <input type="file" id="f-cam" accept="image/*" capture="environment" hidden>
+    <input type="file" id="f-file" accept="image/*,application/pdf" hidden>
+    <button id="u-send" disabled>ส่งเอกสาร</button>
+    <div class="lock">🔒 ส่งตรงเข้าระบบ ไม่ผ่านแชท</div>
+  </section>
+
+  <!-- ===== เอกสารของฉัน ===== -->
+  <section id="v-docs" class="card" hidden>
+    <button class="back" data-go="home">‹ กลับ</button>
+    <h2>เอกสารของฉัน</h2>
+    <p class="sub">แตะเพื่อเปิดดู</p>
+    <div id="d-list"><div class="empty">กำลังโหลด…</div></div>
+    <button data-go="upload">+ ส่งเอกสารเพิ่ม</button>
+  </section>
+
+  <!-- ===== ข้อมูลของฉัน ===== -->
+  <section id="v-me" class="card" hidden>
+    <button class="back" data-go="home">‹ กลับ</button>
+    <h2>ข้อมูลของฉัน</h2>
+    <p class="sub">หากข้อมูลไม่ถูกต้อง กรุณาแจ้งผู้ให้บริการทางแชท</p>
+    <dl class="info" id="m-info"></dl>
+  </section>
+
   <!-- ผลลัพธ์ -->
   <section id="v-result" class="card center" hidden>
     <div id="r-icon" class="icon ok">✓</div>
@@ -155,7 +238,8 @@ const CONFIG = {
 let session = null;
 
 const $ = (id) => document.getElementById(id);
-function show(id){ for (const v of ["v-loading","v-consent","v-form","v-result"]) $(v).hidden = v !== id; window.scrollTo(0,0); }
+const VIEWS = ["v-loading","v-consent","v-form","v-result","v-home","v-upload","v-docs","v-me"];
+function show(id){ for (const v of VIEWS) $(v).hidden = v !== id; window.scrollTo(0,0); }
 function result(kind, title, text){
   const icon = $("r-icon");
   icon.className = "icon " + kind;
@@ -176,7 +260,7 @@ async function fn(name, body, token){
 function closeOrHome(){ if (liff.isInClient()) liff.closeWindow(); else location.reload(); }
 
 function statusView(status){
-  if (status === "active") result("ok", "ท่านเป็นลูกค้าแล้ว", "ใช้งานผ่านเมนูใน LINE OA ได้เลย");
+  if (status === "active") return openApp();
   else if (status === "inactive") result("bad", "บัญชีถูกระงับชั่วคราว", "กรุณาติดต่อผู้ให้บริการผ่านแชท");
   else result("wait", "ลงทะเบียนเรียบร้อย", "รอผู้ให้บริการตรวจสอบและอนุมัติ ท่านจะได้รับแจ้งทาง LINE");
 }
@@ -254,6 +338,178 @@ $("f").addEventListener("submit", async (e) => {
   } finally { btn.disabled = false; btn.textContent = "ลงทะเบียน"; }
 });
 $("r-btn").onclick = closeOrHome;
+
+// =====================================================================
+// แอปลูกค้า (หลังอนุมัติ)
+// =====================================================================
+let sb = null, me = null;
+const DOC_TYPES = [
+  { k:"50tawi",          c:"income",    t:"50 ทวิ (หนังสือรับรองหัก ณ ที่จ่าย)", ic:"🧾" },
+  { k:"insurance_cert",  c:"deduction", t:"หนังสือรับรองเบี้ยประกัน", ic:"🛡️" },
+  { k:"fund_cert",       c:"deduction", t:"กองทุน RMF / SSF / ThaiESG", ic:"📈" },
+  { k:"mortgage_interest", c:"deduction", t:"ดอกเบี้ยเงินกู้บ้าน", ic:"🏠" },
+  { k:"donation",        c:"deduction", t:"ใบอนุโมทนา / เงินบริจาค", ic:"🙏" },
+  { k:"rental_contract", c:"income",    t:"สัญญาเช่า / รายได้ค่าเช่า", ic:"🔑" },
+  { k:"platform_report", c:"income",    t:"รายงานยอดขายออนไลน์", ic:"🛒" },
+  { k:"statement",       c:"income",    t:"Statement ธนาคาร", ic:"🏦" },
+  { k:"salary_slip",     c:"income",    t:"สลิปเงินเดือน", ic:"💼" },
+  { k:"receipt",         c:"expense",   t:"ใบเสร็จค่าใช้จ่าย", ic:"🧾" },
+  { k:"id_card",         c:"identity",  t:"บัตรประชาชน", ic:"🪪" },
+  { k:"house_reg",       c:"identity",  t:"ทะเบียนบ้าน", ic:"📘" },
+  { k:"other",           c:"other",     t:"อื่น ๆ", ic:"📄" },
+];
+const TYPE = Object.fromEntries(DOC_TYPES.map((d) => [d.k, d]));
+const STATUS_TH = { pending_review:"รอตรวจ", confirmed:"ตรวจแล้ว", rejected:"ส่งใหม่" };
+const MARITAL_TH = { single:"โสด", married:"สมรส", divorced:"หย่า", widowed:"หม้าย" };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const thYear = (y) => y + 543;
+const fmt = (d) => new Date(d).toLocaleDateString("th-TH", { day:"numeric", month:"short", year:"2-digit" });
+
+async function openApp(){
+  sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false },
+  });
+  await sb.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
+  const { data, error } = await sb.from("clients")
+    .select("id, client_code, title, first_name, last_name, national_id_last4, birth_date, phone, email, address, marital_status, status")
+    .single();
+  if (error || !data) return result("bad", "โหลดข้อมูลไม่สำเร็จ", "กรุณาปิดแล้วเปิดใหม่จากเมนูใน LINE");
+  me = data;
+  $("h-av").textContent = (me.first_name || "?")[0];
+  $("h-name").textContent = `คุณ${me.first_name} ${me.last_name}`;
+  $("h-code").textContent = `รหัสลูกค้า ${me.client_code || "–"}`;
+  buildUploadForm();
+  const page = new URLSearchParams(location.search).get("p");
+  go(["upload","docs","me"].includes(page) ? page : "home");
+  countDocs();
+}
+function go(page){
+  if (page === "home") { show("v-home"); countDocs(); }
+  else if (page === "upload") { resetUpload(); show("v-upload"); }
+  else if (page === "docs") { show("v-docs"); loadDocs(); }
+  else if (page === "me") { renderMe(); show("v-me"); }
+}
+document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) go(g.dataset.go); });
+
+async function countDocs(){
+  if (!sb) return;
+  const { count } = await sb.from("documents").select("id", { count: "exact", head: true });
+  $("h-docs").textContent = count ? `${count} รายการ` : "ยังไม่มีเอกสาร";
+}
+
+// ---------- ส่งเอกสาร ----------
+let up = { year: null, type: null, file: null };
+function chip(container, items, key, onPick){
+  container.innerHTML = items.map((i) => `<button type="button" class="chip" data-v="${esc(i.v)}">${esc(i.t)}</button>`).join("");
+  container.onclick = (e) => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    [...container.children].forEach((x) => x.classList.toggle("on", x === b));
+    onPick(b.dataset.v); validateUpload();
+  };
+}
+function buildUploadForm(){
+  const y = new Date().getFullYear();
+  chip($("u-year"), [y, y - 1].map((v) => ({ v, t: `ปีภาษี ${thYear(v)}` })), "year", (v) => up.year = +v);
+  chip($("u-type"), DOC_TYPES.map((d) => ({ v: d.k, t: `${d.ic} ${d.t}` })), "type", (v) => up.type = v);
+}
+function resetUpload(){
+  up = { year: null, type: null, file: null };
+  document.querySelectorAll("#v-upload .chip").forEach((x) => x.classList.remove("on"));
+  // ค่าเริ่มต้น: ช่วง ม.ค.–มี.ค. มักส่งเอกสารของปีก่อน
+  const def = new Date().getMonth() <= 2 ? 1 : 0;
+  $("u-year").children[def]?.click();
+  $("u-drop").textContent = "ยังไม่ได้เลือกไฟล์";
+  $("f-cam").value = $("f-file").value = "";
+  validateUpload();
+}
+function validateUpload(){ $("u-send").disabled = !(up.year && up.type && up.file); }
+$("u-cam").onclick = () => $("f-cam").click();
+$("u-file").onclick = () => $("f-file").click();
+for (const id of ["f-cam","f-file"]) $(id).onchange = async (e) => {
+  const f = e.target.files?.[0]; if (!f) return;
+  if (f.size > 20 * 1024 * 1024) { alert("ไฟล์ใหญ่เกิน 20 MB"); return; }
+  up.file = await shrink(f);
+  const drop = $("u-drop");
+  if (up.file.type.startsWith("image/")) {
+    drop.innerHTML = `${esc(f.name || "รูปภาพ")}<br><img alt="">`;
+    drop.querySelector("img").src = URL.createObjectURL(up.file);
+  } else drop.textContent = `📄 ${f.name}`;
+  validateUpload();
+};
+// ย่อรูปจากกล้องให้เล็กลง (ยังอ่านได้ชัด) เพื่อส่งเร็วและประหยัดพื้นที่
+async function shrink(file){
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1.2 * 1024 * 1024) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const max = 2200, k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
+    return blob && blob.size < file.size ? new File([blob], (file.name || "photo").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
+  } catch { return file; }
+}
+$("u-send").onclick = async () => {
+  const btn = $("u-send"); btn.disabled = true; btn.textContent = "กำลังส่ง…";
+  try {
+    const t = TYPE[up.type], f = up.file;
+    const ext = (f.type === "application/pdf" ? "pdf" : (f.type.split("/")[1] || "jpg")).replace("jpeg", "jpg");
+    const path = `${me.id}/${up.year}/${t.c}/${crypto.randomUUID()}.${ext}`;
+    const { error: sErr } = await sb.storage.from("client-docs").upload(path, f, { contentType: f.type, upsert: false });
+    if (sErr) throw sErr;
+    const { data: doc, error: dErr } = await sb.from("documents").insert({
+      client_id: me.id, tax_year: up.year, category: t.c, doc_type: t.k, file_path: path,
+      mime_type: f.type, original_name: (f.name || "").slice(0, 200), size_bytes: f.size,
+      uploaded_by: "client", status: "pending_review",
+    }).select("id").single();
+    if (dErr) throw dErr;
+    fn("doc-uploaded", { document_id: doc.id }, (await sb.auth.getSession()).data.session?.access_token).catch(() => {});
+    result("ok", "ส่งเอกสารเรียบร้อย", `${t.t} · ปีภาษี ${thYear(up.year)} — ผู้ให้บริการจะตรวจและแจ้งผลทาง LINE`);
+    $("r-btn").textContent = "ส่งเอกสารเพิ่ม"; $("r-btn").onclick = () => { $("r-btn").textContent = "กลับไปที่แชท"; $("r-btn").onclick = closeOrHome; go("upload"); };
+  } catch (err) {
+    console.error(err);
+    alert("ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  } finally { btn.textContent = "ส่งเอกสาร"; validateUpload(); }
+};
+
+// ---------- เอกสารของฉัน ----------
+let docs = [];
+async function loadDocs(){
+  const { data, error } = await sb.from("documents")
+    .select("id, tax_year, doc_type, file_path, mime_type, status, review_note, created_at")
+    .order("created_at", { ascending: false }).limit(200);
+  if (error) { $("d-list").innerHTML = `<div class="empty">โหลดไม่สำเร็จ</div>`; return; }
+  docs = data;
+  $("d-list").innerHTML = data.length ? data.map((d) => {
+    const t = TYPE[d.doc_type] || TYPE.other;
+    return `<div class="doc" data-id="${d.id}"><div class="ic">${t.ic}</div>
+      <div class="g"><b>${esc(t.t)}</b><small>ปีภาษี ${d.tax_year ? thYear(d.tax_year) : "–"} · ส่งเมื่อ ${fmt(d.created_at)}</small>
+      ${d.status === "rejected" && d.review_note ? `<div class="note">${esc(d.review_note)}</div>` : ""}</div>
+      <span class="st st-${d.status}">${STATUS_TH[d.status] || d.status}</span></div>`;
+  }).join("") : `<div class="empty">ยังไม่มีเอกสาร</div>`;
+}
+$("d-list").onclick = async (e) => {
+  const row = e.target.closest(".doc"); if (!row) return;
+  const d = docs.find((x) => x.id === row.dataset.id); if (!d) return;
+  const { data, error } = await sb.storage.from("client-docs").createSignedUrl(d.file_path, 120);
+  if (error || !data?.signedUrl) return alert("เปิดไฟล์ไม่สำเร็จ");
+  if (liff.isInClient()) liff.openWindow({ url: data.signedUrl, external: false }); else window.open(data.signedUrl, "_blank", "noopener");
+};
+
+// ---------- ข้อมูลของฉัน ----------
+function renderMe(){
+  const l4 = me.national_id_last4 || "";
+  const nid = l4.length === 4 ? `x-xxxx-xxxx${l4[0]}-${l4.slice(1,3)}-${l4[3]}` : "–";
+  $("m-info").innerHTML = `
+    <dt>รหัสลูกค้า</dt><dd>${esc(me.client_code || "–")}</dd>
+    <dt>ชื่อ-สกุล</dt><dd>${esc(me.title || "")}${esc(me.first_name)} ${esc(me.last_name)}</dd>
+    <dt>เลข ปชช.</dt><dd>${nid}</dd>
+    <dt>วันเกิด</dt><dd>${me.birth_date ? new Date(me.birth_date).toLocaleDateString("th-TH", { dateStyle:"long" }) : "–"}</dd>
+    <dt>สถานภาพ</dt><dd>${MARITAL_TH[me.marital_status] || "–"}</dd>
+    <dt>เบอร์โทร</dt><dd>${esc(me.phone || "–")}</dd>
+    <dt>อีเมล</dt><dd>${esc(me.email || "–")}</dd>
+    <dt>ที่อยู่</dt><dd>${esc(me.address || "–")}</dd>`;
+}
 
 start();
 </script>

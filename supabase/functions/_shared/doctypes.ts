@@ -1,0 +1,16 @@
+export const DOC_LABEL: Record<string, string> = {
+  "50tawi": "50 ทวิ (หนังสือรับรองหัก ณ ที่จ่าย)",
+  insurance_cert: "หนังสือรับรองเบี้ยประกัน",
+  fund_cert: "กองทุน RMF / SSF / ThaiESG",
+  mortgage_interest: "ดอกเบี้ยเงินกู้บ้าน",
+  donation: "ใบอนุโมทนา / เงินบริจาค",
+  rental_contract: "สัญญาเช่า / รายได้ค่าเช่า",
+  platform_report: "รายงานยอดขายออนไลน์",
+  statement: "Statement ธนาคาร",
+  salary_slip: "สลิปเงินเดือน",
+  receipt: "ใบเสร็จค่าใช้จ่าย",
+  id_card: "บัตรประชาชน",
+  house_reg: "ทะเบียนบ้าน",
+  other: "เอกสารอื่น ๆ",
+};
+export const thYear = (y: number | null) => (y ? String(y + 543) : "–");
