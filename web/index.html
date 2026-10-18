@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="taxcalc.js"></script>
 <style>
   :root{
     --bg:#f6f5f1; --card:#ffffff; --ink:#1d2321; --muted:#66706c; --line:#e3e1da;
@@ -95,6 +96,34 @@
   dl.info{display:grid;grid-template-columns:110px 1fr;gap:8px 10px;margin:0;font-size:14.5px}
   dl.info dt{color:var(--muted)} dl.info dd{margin:0;word-break:break-word}
   .empty{color:var(--muted);text-align:center;padding:20px 0;font-size:14px}
+
+  .tile.hero{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .tile.hero small{color:color-mix(in srgb,var(--brand-ink) 80%,transparent)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sec-t{font-size:15px;font-weight:600;margin:20px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
+  .sec-t:first-of-type{border-top:0;padding-top:0}
+  .chk{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14.5px}
+  .chk input{width:20px;height:20px;accent-color:var(--brand)}
+  details.more{margin-top:10px}
+  details.more summary{cursor:pointer;color:var(--brand);font-weight:500;font-size:14.5px;padding:6px 0}
+  .money{position:relative}
+  .money input{padding-right:44px}
+  .money::after{content:"บาท";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px}
+  .big{font-size:30px;font-weight:600;margin:4px 0 2px}
+  .big.ok{color:var(--ok)} .big.bad{color:var(--danger)}
+  .sum{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-size:14px;margin-top:12px}
+  .sum span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+  .sum .tot{font-weight:600;border-top:1px solid var(--line);padding-top:6px}
+  .advice{background:color-mix(in srgb,var(--brand) 9%,transparent);border-radius:12px;padding:12px 14px;margin-top:14px;font-size:14.5px}
+  .advice b{color:var(--brand)}
+  .sug{display:flex;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+  .sug:first-child{border-top:0}
+  .sug .g{flex:1;min-width:0}
+  .sug b{display:block;font-size:14.5px}
+  .sug small{color:var(--muted);font-size:12.5px;display:block}
+  .sug .sv{color:var(--ok);font-weight:600;font-size:13.5px}
+  .sug button{width:auto;margin:0;padding:8px 12px;font-size:13px;white-space:nowrap}
+  .disc{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -176,10 +205,68 @@
       <div><h2 id="h-name" style="margin:0"></h2><div class="code" id="h-code"></div></div>
     </div>
     <div class="tiles">
+      <button class="tile wide hero" data-go="plan"><span class="em">🧮</span><span>ต้องลดหย่อนไหม? ลดอะไรดี?<br><small id="h-plan">กรอกเงินเดือน รู้ผลทันทีว่าได้คืนหรือต้องจ่ายเพิ่ม</small></span></button>
       <button class="tile wide" data-go="upload"><span class="em">📤</span><span>ส่งเอกสาร<br><small>ถ่ายรูปหรือเลือกไฟล์ 50 ทวิ ใบลดหย่อน ฯลฯ</small></span></button>
       <button class="tile" data-go="docs"><span class="em">🗂️</span>เอกสารของฉัน<small id="h-docs">–</small></button>
       <button class="tile" data-go="me"><span class="em">👤</span>ข้อมูลของฉัน<small>ข้อมูลผู้เสียภาษี</small></button>
     </div>
+  </section>
+
+  <!-- ===== วางแผนภาษี ===== -->
+  <section id="v-plan" class="card" hidden>
+    <button class="back" data-go="home">‹ กลับ</button>
+    <h2>วางแผนภาษี</h2>
+    <p class="sub">กรอกตามสลิปเงินเดือนหรือ 50 ทวิ ระบบจะคำนวณให้ทันที (ข้อมูลเก็บเป็นความลับ)</p>
+    <form id="f-plan" novalidate>
+      <div class="chips" id="p-year"></div>
+
+      <div class="sec-t">💰 รายได้</div>
+      <div class="row2">
+        <div><label for="p-salary">เงินเดือน (ต่อเดือน)</label><div class="money"><input id="p-salary" inputmode="decimal"></div></div>
+        <div><label for="p-months">จำนวนเดือน</label><input id="p-months" inputmode="numeric" value="12"></div>
+      </div>
+      <label for="p-bonus">โบนัส / รายได้อื่นจากงาน (ทั้งปี)</label><div class="money"><input id="p-bonus" inputmode="decimal" placeholder="0"></div>
+
+      <div class="sec-t">🧾 ภาษีที่บริษัทหัก ณ ที่จ่าย</div>
+      <div class="row2">
+        <div><label for="p-wht">ต่อเดือน</label><div class="money"><input id="p-wht" inputmode="decimal" placeholder="0"></div></div>
+        <div><label for="p-whtx">หักจากโบนัส/อื่น ๆ</label><div class="money"><input id="p-whtx" inputmode="decimal" placeholder="0"></div></div>
+      </div>
+
+      <div class="sec-t">👨‍👩‍👧 ครอบครัว</div>
+      <label class="chk"><input type="checkbox" id="p-spouse"> คู่สมรสไม่มีเงินได้</label>
+      <div class="row2">
+        <div><label for="p-kids">จำนวนบุตร</label><input id="p-kids" inputmode="numeric" placeholder="0"></div>
+        <div><label for="p-kids2">บุตรคนที่ 2+ เกิดปี 2561 ขึ้นไป</label><input id="p-kids2" inputmode="numeric" placeholder="0"></div>
+      </div>
+      <label for="p-parents">อุปการะบิดามารดา อายุ 60+ (คน)</label><input id="p-parents" inputmode="numeric" placeholder="0">
+
+      <div class="sec-t">🛡️ ลดหย่อนที่มีอยู่แล้ว</div>
+      <label for="p-sso">ประกันสังคม (ทั้งปี) <small>คำนวณให้อัตโนมัติ แก้ได้</small></label><div class="money"><input id="p-sso" inputmode="decimal"></div>
+      <div id="p-items"></div>
+      <details class="more"><summary>ลดหย่อนอื่น ๆ (กองทุน ดอกเบี้ยบ้าน บริจาค ฯลฯ)</summary><div id="p-items2"></div></details>
+
+      <button type="submit">คำนวณ</button>
+    </form>
+  </section>
+
+  <!-- ===== ผลวางแผนภาษี ===== -->
+  <section id="v-planres" hidden>
+    <div class="card">
+      <button class="back" data-go="plan">‹ แก้ไขข้อมูล</button>
+      <div class="sub" id="r-year" style="margin:0"></div>
+      <div class="big" id="r-big"></div>
+      <div id="r-bigsub" class="sub" style="margin:0"></div>
+      <div class="advice" id="r-advice"></div>
+      <div class="sum" id="r-sum"></div>
+    </div>
+    <div class="card" id="r-sugcard">
+      <h2 style="font-size:17px">ลดหย่อนอะไรดี</h2>
+      <p class="sub" style="margin-bottom:6px">เรียงตามภาษีที่ประหยัดได้มากที่สุด (คิดจากสิทธิที่ยังเหลือ)</p>
+      <div id="r-sug"></div>
+      <button class="ghost" id="r-ask">💬 ขอคำปรึกษาวางแผนภาษีกับเจ้าหน้าที่</button>
+    </div>
+    <p class="disc" id="r-disc"></p>
   </section>
 
   <!-- ===== ส่งเอกสาร ===== -->
@@ -238,7 +325,7 @@ const CONFIG = {
 let session = null;
 
 const $ = (id) => document.getElementById(id);
-const VIEWS = ["v-loading","v-consent","v-form","v-result","v-home","v-upload","v-docs","v-me"];
+const VIEWS = ["v-loading","v-consent","v-form","v-result","v-home","v-upload","v-docs","v-me","v-plan","v-planres"];
 function show(id){ for (const v of VIEWS) $(v).hidden = v !== id; window.scrollTo(0,0); }
 function result(kind, title, text){
   const icon = $("r-icon");
@@ -380,7 +467,7 @@ async function openApp(){
   $("h-code").textContent = `รหัสลูกค้า ${me.client_code || "–"}`;
   buildUploadForm();
   const page = new URLSearchParams(location.search).get("p");
-  go(["upload","docs","me"].includes(page) ? page : "home");
+  go(["upload","docs","me","plan"].includes(page) ? page : "home");
   countDocs();
 }
 function go(page){
@@ -388,6 +475,7 @@ function go(page){
   else if (page === "upload") { resetUpload(); show("v-upload"); }
   else if (page === "docs") { show("v-docs"); loadDocs(); }
   else if (page === "me") { renderMe(); show("v-me"); }
+  else if (page === "plan") { openPlan(); }
 }
 document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) go(g.dataset.go); });
 
@@ -509,6 +597,146 @@ function renderMe(){
     <dt>เบอร์โทร</dt><dd>${esc(me.phone || "–")}</dd>
     <dt>อีเมล</dt><dd>${esc(me.email || "–")}</dd>
     <dt>ที่อยู่</dt><dd>${esc(me.address || "–")}</dd>`;
+}
+
+// ---------- วางแผนภาษี ----------
+const num = (v) => { const n = parseFloat(String(v ?? "").replace(/[^\d.]/g, "")); return isFinite(n) ? n : 0; };
+const baht = (n) => Math.round(n).toLocaleString("th-TH");
+let planYear = new Date().getFullYear(), planLoaded = {}, lastCalc = null;
+const SELL_TOPIC = { life:1, health:1, parentHealth:1, spouseLife:1, pension:1 };
+
+function itemInputs(){
+  const R = TaxCalc.RULES[planYear] || TaxCalc.RULES[2026];
+  const field = (it) => `<label for="pi-${it.k}">${esc(it.t)}${it.hint ? ` <small>${esc(it.hint)}</small>` : ""}</label>
+    <div class="money"><input id="pi-${it.k}" data-item="${it.k}" inputmode="decimal" placeholder="0"></div>`;
+  const main = ["life","health","parentHealth","spouseLife","pension"];
+  $("p-items").innerHTML = R.items.filter((i) => main.includes(i.k)).map(field).join("");
+  $("p-items2").innerHTML = R.items.filter((i) => !main.includes(i.k)).map(field).join("") +
+    `<label for="pi-maternity">ฝากครรภ์และคลอดบุตร</label><div class="money"><input id="pi-maternity" inputmode="decimal" placeholder="0"></div>
+     <label for="pi-donation">เงินบริจาคทั่วไป (e-Donation)</label><div class="money"><input id="pi-donation" inputmode="decimal" placeholder="0"></div>
+     <label for="pi-donation2x">บริจาคการศึกษา/กีฬา/รพ.รัฐ (ลดได้ 2 เท่า)</label><div class="money"><input id="pi-donation2x" inputmode="decimal" placeholder="0"></div>`;
+}
+function fillPlan(v){
+  const set = (id, x) => { if ($(id)) $(id).value = x ? String(x) : ""; };
+  set("p-salary", v.salary); $("p-months").value = v.months || 12; set("p-bonus", v.bonus);
+  set("p-wht", v.wht); set("p-whtx", v.whtx); $("p-spouse").checked = !!v.spouseNoIncome;
+  set("p-kids", v.children); set("p-kids2", v.children2plus2018); set("p-parents", v.parents);
+  set("p-sso", v.sso); set("pi-maternity", v.maternity); set("pi-donation", v.donation); set("pi-donation2x", v.donation2x);
+  for (const [k, x] of Object.entries(v.items || {})) set(`pi-${k}`, x);
+}
+function readPlan(){
+  const items = {};
+  document.querySelectorAll("[data-item]").forEach((el) => { const n = num(el.value); if (n) items[el.dataset.item] = n; });
+  return {
+    salary: num($("p-salary").value), months: Math.min(12, Math.max(1, num($("p-months").value) || 12)), bonus: num($("p-bonus").value),
+    wht: num($("p-wht").value), whtx: num($("p-whtx").value), spouseNoIncome: $("p-spouse").checked,
+    children: num($("p-kids").value), children2plus2018: num($("p-kids2").value), parents: num($("p-parents").value),
+    sso: num($("p-sso").value), maternity: num($("pi-maternity")?.value), donation: num($("pi-donation")?.value),
+    donation2x: num($("pi-donation2x")?.value), items,
+  };
+}
+async function openPlan(){
+  const y = new Date().getFullYear();
+  chip($("p-year"), [y, y - 1].map((v) => ({ v, t: `ปีภาษี ${thYear(v)}` })), "year", async (v) => { planYear = +v; await loadPlan(); });
+  const def = new Date().getMonth() <= 2 ? 1 : 0;
+  [...$("p-year").children].forEach((x, i) => x.classList.toggle("on", i === def));
+  planYear = y - def;
+  await loadPlan();
+  show("v-plan");
+}
+async function loadPlan(){
+  itemInputs();
+  if (!(planYear in planLoaded)) {
+    const { data } = await sb.from("client_tax_inputs").select("inputs").eq("tax_year", planYear).maybeSingle();
+    planLoaded[planYear] = data?.inputs || null;
+  }
+  fillPlan(planLoaded[planYear] || {});
+  if (!planLoaded[planYear]) $("p-sso").value = "";
+}
+$("p-salary").addEventListener("input", () => {
+  if (!$("p-sso").dataset.touched) $("p-sso").value = num($("p-salary").value) ? TaxCalc.ssoFromSalary(num($("p-salary").value), planYear) : "";
+});
+$("p-sso").addEventListener("input", () => { $("p-sso").dataset.touched = "1"; });
+
+$("f-plan").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const v = readPlan();
+  if (!v.salary && !v.bonus) { alert("กรุณากรอกเงินเดือนหรือรายได้"); $("p-salary").focus(); return; }
+  const input = {
+    year: planYear, income: v.salary * v.months + v.bonus, withheld: v.wht * v.months + v.whtx,
+    spouseNoIncome: v.spouseNoIncome, children: v.children, children2plus2018: v.children2plus2018, parents: v.parents,
+    maternity: v.maternity, sso: v.sso, items: v.items, donation: v.donation, donation2x: v.donation2x,
+  };
+  const r = TaxCalc.calculate(input);
+  lastCalc = r;
+  renderPlanResult(r);
+  planLoaded[planYear] = v;
+  const summary = { income: r.income, tax: r.tax, withheld: r.withheld, diff: r.diff, rate: r.rate, net: r.net,
+    room: r.room, saveTop: r.suggestions.slice(0, 5).map((s) => ({ k: s.k, save: s.save, room: s.room })) };
+  sb.from("client_tax_inputs").upsert({ client_id: me.id, tax_year: planYear, inputs: v, result: summary, updated_at: new Date().toISOString() })
+    .then(({ error }) => { if (error) console.warn("save plan", error.message); });
+});
+
+function renderPlanResult(r){
+  $("r-year").textContent = `${r.label} · ประมาณการ`;
+  const big = $("r-big"), sub = $("r-bigsub");
+  if (r.tax === 0 && r.withheld === 0) { big.className = "big ok"; big.textContent = "ไม่ต้องเสียภาษี 🎉"; sub.textContent = "เงินได้สุทธิยังไม่ถึง 150,000 บาท"; }
+  else if (r.diff > 0) { big.className = "big ok"; big.textContent = `ได้คืน ${baht(r.diff)} บาท`; sub.textContent = "ถูกหักไว้มากกว่าภาษีที่ต้องเสีย — ยื่นภาษีเพื่อขอคืนได้"; }
+  else if (r.diff < 0) { big.className = "big bad"; big.textContent = `ต้องจ่ายเพิ่ม ${baht(-r.diff)} บาท`; sub.textContent = "ภาษีที่ต้องเสียมากกว่าที่ถูกหักไว้"; }
+  else { big.className = "big"; big.textContent = "พอดี ไม่ต้องจ่ายเพิ่ม"; sub.textContent = "ภาษีที่ถูกหักเท่ากับภาษีที่ต้องเสีย"; }
+
+  let adv;
+  if (!r.needMore) adv = "✅ <b>ไม่จำเป็นต้องลดหย่อนเพิ่ม</b> เพราะภาษีที่ต้องเสียเป็น 0 แล้ว";
+  else {
+    adv = `ตอนนี้อยู่ใน<b>ขั้นภาษี ${Math.round(r.rate * 100)}%</b> — ลดหย่อนเพิ่มทุก 1,000 บาท ประหยัดภาษีได้ ${baht(r.rate * 1000)} บาท`;
+    if (r.toLower > 0 && r.rate > 0.05) adv += `<br>• ลดหย่อนเพิ่มอีก <b>${baht(r.toLower)} บาท</b> จะลงมาอยู่ขั้น ${Math.round((r.rate - 0.05) * 100)}%`;
+    adv += `<br>• ลดหย่อนเพิ่มอีก <b>${baht(r.toZero)} บาท</b> จะไม่ต้องเสียภาษีเลย`;
+    if (r.diff < 0) {
+      const need = needForNoPay(r);
+      if (need != null) adv += `<br>• ลดหย่อนเพิ่มอีก <b>${baht(need)} บาท</b> ก็ไม่ต้องจ่ายภาษีเพิ่มตอนยื่น`;
+    }
+  }
+  $("r-advice").innerHTML = adv;
+  $("r-sum").innerHTML = `
+    <span>เงินได้ทั้งปี</span><span>${baht(r.income)}</span>
+    <span>หักค่าใช้จ่าย 50% (ไม่เกิน 100,000)</span><span>−${baht(r.expense)}</span>
+    <span>หักค่าลดหย่อน</span><span>−${baht(r.deductions)}</span>
+    <span class="tot">เงินได้สุทธิ</span><span class="tot">${baht(r.net)}</span>
+    <span>ภาษีที่ต้องเสีย</span><span>${baht(r.tax)}</span>
+    <span>ถูกหัก ณ ที่จ่ายแล้ว</span><span>${baht(r.withheld)}</span>`;
+
+  $("r-sugcard").hidden = !r.needMore;
+  const sugRow = (s) => `
+    <div class="sug"><div class="g"><b>${esc(s.t)}</b>
+      <small>ซื้อ/ลงทุนเพิ่มได้อีก ${baht(s.room)} บาท${s.hint ? ` · ${esc(s.hint)}` : ""}</small>
+      <span class="sv">ประหยัดภาษีได้สูงสุด ~${baht(s.save)} บาท</span></div>
+      ${SELL_TOPIC[s.k] ? `<button class="ghost" data-lead="${s.k}" data-save="${s.save}">สนใจ</button>` : ""}</div>`;
+  const main = r.suggestions.filter((s) => !s.niche), other = r.suggestions.filter((s) => s.niche);
+  $("r-sug").innerHTML = (main.map(sugRow).join("") || `<div class="empty">ใช้สิทธิหลักครบแล้ว</div>`) +
+    (other.length ? `<details class="more"><summary>ทางเลือกอื่น (ดอกเบี้ยบ้าน, Solar Rooftop, ศิลปะหัตถศิลป์ ฯลฯ)</summary>${other.map(sugRow).join("")}</details>` : "");
+  $("r-disc").textContent = "* เป็นการประมาณการจากข้อมูลที่กรอก สำหรับเงินได้ประเภทเงินเดือน/ค่าจ้าง (ม.40(1)–(2)) " +
+    "ยังไม่รวมเงินได้ประเภทอื่น ผลจริงขึ้นกับเอกสารและการยื่นแบบ · " + r.notes.join(" · ");
+  show("v-planres");
+}
+// ลดหย่อนเพิ่มเท่าไรจึงไม่ต้องจ่ายเพิ่ม (ภาษี ≤ ที่ถูกหักไว้)
+function needForNoPay(r){
+  const R = TaxCalc.RULES[r.year] || TaxCalc.RULES[2026];
+  let lo = 0, hi = r.net;
+  if (TaxCalc.taxOn(0, R.brackets) > r.withheld) return null;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (TaxCalc.taxOn(r.net - mid, R.brackets) <= r.withheld) hi = mid; else lo = mid; }
+  return Math.ceil(hi / 100) * 100;
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-lead]"); if (!b) return;
+  await sendLead(b.dataset.lead, +b.dataset.save, b);
+});
+$("r-ask").onclick = (e) => sendLead("general", lastCalc?.suggestions?.[0]?.save || 0, e.currentTarget);
+async function sendLead(topic, save, btn){
+  btn.disabled = true;
+  const token = (await sb.auth.getSession()).data.session?.access_token;
+  const res = await fn("lead-request", { topic, est_saving: save, tax_year: planYear }, token);
+  btn.textContent = res.ok ? "✓ ส่งแล้ว" : "ลองใหม่";
+  if (res.ok) alert("ส่งเรื่องให้เจ้าหน้าที่แล้ว จะติดต่อกลับทาง LINE โดยเร็ว"); else btn.disabled = false;
 }
 
 start();

@@ -104,6 +104,15 @@
   .p-pending_review{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
   .p-confirmed{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
   .p-rejected{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+
+  .tabs{overflow-x:auto;max-width:100%}
+  .tabs button{white-space:nowrap}
+  .sec-h{font-size:13px;color:var(--muted);font-weight:600;padding:12px 14px 4px;text-transform:uppercase;letter-spacing:.04em}
+  .opp{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .opp span{font-size:12px;background:var(--soft);border-radius:999px;padding:2px 8px}
+  .item .act{display:flex;gap:6px}
+  .item .act button{padding:6px 10px;font-size:12.5px}
+  .save{color:var(--ok);font-weight:600;font-size:13px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -169,6 +178,7 @@
         <button data-s="inactive">ระงับ</button>
         <button data-s="all">ทั้งหมด</button>
         <button data-s="docs">เอกสารรอตรวจ</button>
+        <button data-s="sales">โอกาสขาย</button>
       </div>
       <input id="q" type="search" placeholder="ค้นหาชื่อ เบอร์โทร รหัสลูกค้า">
     </div>
@@ -295,6 +305,7 @@ async function loadSummary(){
 }
 async function loadList(){
   if (filter === "docs") return loadPendingDocs();
+  if (filter === "sales") return loadSales();
   let q = sb.from("clients").select("id, client_code, title, first_name, last_name, phone, status, created_at, national_id_last4").order("created_at", { ascending: false }).limit(500);
   if (filter !== "all") q = q.eq("status", filter);
   const { data, error } = await q;
@@ -302,7 +313,7 @@ async function loadList(){
   clients = data; renderList();
 }
 function renderList(){
-  if (filter === "docs") return;
+  if (filter === "docs" || filter === "sales") return;
   const t = $("q").value.trim().toLowerCase();
   const rows = clients.filter((c) => !t || [c.first_name, c.last_name, c.phone, c.client_code].some((v) => (v || "").toLowerCase().includes(t)));
   if (!rows.length) { $("list").innerHTML = `<div class="empty">ไม่มีรายการ</div>`; return; }
@@ -475,6 +486,70 @@ async function loadPendingDocs(){
     </div>`).join("") : `<div class="empty">ไม่มีเอกสารรอตรวจ 🎉</div>`;
 }
 $("st-docs").onclick = () => [...$("tabs").children].find((x) => x.dataset.s === "docs")?.click();
+
+// ---------- โอกาสการขาย ----------
+const TOPIC = { life:"ประกันชีวิต", health:"ประกันสุขภาพ", parentHealth:"ประกันสุขภาพพ่อแม่", spouseLife:"ประกันชีวิตคู่สมรส",
+  pension:"ประกันบำนาญ", general:"วางแผนลดหย่อน", rmf:"RMF", esgx:"Thai ESGX", pvd:"PVD" };
+const INS = ["life","health","parentHealth","spouseLife","pension"];
+const money = (n) => Math.round(n || 0).toLocaleString("th-TH");
+async function loadSales(){
+  const y = new Date().getFullYear();
+  const [{ data: leads }, { data: plans }, { data: cons }] = await Promise.all([
+    sb.from("lead_requests").select("id, client_id, topic, est_saving, status, created_at, clients(first_name, last_name, client_code, phone)")
+      .neq("status", "closed").order("created_at", { ascending: false }).limit(200),
+    sb.from("client_tax_inputs").select("client_id, tax_year, result, updated_at, clients(first_name, last_name, client_code, status)")
+      .in("tax_year", [y, y - 1]).order("updated_at", { ascending: false }).limit(500),
+    sb.from("consents").select("client_id, granted, revoked_at, granted_at").eq("consent_type", "marketing_insurance").order("granted_at", { ascending: false }),
+  ]);
+  // consent ล่าสุดของแต่ละคน
+  const ok = new Set(); const seen = new Set();
+  for (const c of cons || []) { if (seen.has(c.client_id)) continue; seen.add(c.client_id); if (c.granted && !c.revoked_at) ok.add(c.client_id); }
+  const leadIds = new Set((leads || []).map((l) => l.client_id));
+
+  const opp = [];
+  const latest = new Map();
+  for (const p of plans || []) if (!latest.has(p.client_id)) latest.set(p.client_id, p);
+  for (const p of latest.values()) {
+    if (!ok.has(p.client_id) && !leadIds.has(p.client_id)) continue; // PDPA: เฉพาะคนที่ยินยอม หรือขอคำปรึกษาเอง
+    const r = p.result || {}; if (!(r.tax > 0)) continue;
+    const ins = (r.saveTop || []).filter((s) => INS.includes(s.k));
+    const room = INS.map((k) => [k, (r.room || {})[k] || 0]).filter(([, v]) => v > 0);
+    if (!room.length) continue;
+    const best = ins.reduce((m, s) => Math.max(m, s.save), 0) || Math.round(Math.min(room.reduce((a, [, v]) => a + v, 0), r.net) * (r.rate || 0));
+    opp.push({ p, r, room, best });
+  }
+  opp.sort((a, b) => b.best - a.best);
+
+  const leadHtml = (leads || []).map((l) => `
+    <div class="item" data-id="${l.client_id}">
+      <div class="av">💡</div>
+      <div class="grow"><div class="nm">${esc(l.clients?.first_name || "")} ${esc(l.clients?.last_name || "")}</div>
+        <div class="meta">${esc(l.clients?.client_code || "")} · ${esc(TOPIC[l.topic] || l.topic)} · ${esc(l.clients?.phone || "")} · ${fmtDate(l.created_at)}</div></div>
+      ${l.est_saving ? `<span class="save">~${money(l.est_saving)} ฿</span>` : ""}
+      <div class="act">${l.status === "new" ? `<button class="ghost" data-lead="${l.id}" data-st="contacted">ติดต่อแล้ว</button>` : ""}
+        <button class="ghost" data-lead="${l.id}" data-st="closed">ปิด</button></div>
+    </div>`).join("");
+  const oppHtml = opp.map(({ p, r, room, best }) => `
+    <div class="item" data-id="${p.client_id}">
+      <div class="av">${esc((p.clients?.first_name || "?")[0])}</div>
+      <div class="grow"><div class="nm">${esc(p.clients?.first_name || "")} ${esc(p.clients?.last_name || "")}
+          <span class="meta">· ขั้นภาษี ${Math.round((r.rate || 0) * 100)}% · ปี ${p.tax_year + 543}</span></div>
+        <div class="opp">${room.map(([k, v]) => `<span>${TOPIC[k]} เหลือ ${money(v)}</span>`).join("")}</div></div>
+      <span class="save">ประหยัดได้ ~${money(best)} ฿</span>
+    </div>`).join("");
+  $("list").innerHTML =
+    `<div class="sec-h">คำขอปรึกษา (${(leads || []).length})</div>` + (leadHtml || `<div class="empty">ยังไม่มีคำขอ</div>`) +
+    `<div class="sec-h">ลูกค้าที่ยังมีสิทธิลดหย่อนประกันเหลือ (${opp.length})</div>` +
+    (oppHtml || `<div class="empty">ยังไม่มีข้อมูล — ลูกค้าต้องกรอกหน้า "วางแผนภาษี" และยินยอมรับคำแนะนำประกัน</div>`);
+}
+$("list").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-lead]"); if (!b) return;
+  e.stopPropagation();
+  b.disabled = true;
+  const { error } = await sb.from("lead_requests").update({ status: b.dataset.st }).eq("id", b.dataset.lead);
+  if (error) { b.disabled = false; return toast("บันทึกไม่สำเร็จ"); }
+  toast(b.dataset.st === "closed" ? "ปิดคำขอแล้ว" : "บันทึกว่าติดต่อแล้ว"); loadSales();
+}, true);
 
 route();
 </script>
