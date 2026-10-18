@@ -10,3 +10,7 @@
 - `supabase/tests/` — ชุดทดสอบสิทธิ์ (RLS)
 
 ห้าม commit ความลับ (service_role key, LINE channel secret/access token) ลง repo นี้
+
+## Deploy
+- Netlify (`mc-service-tax`) เชื่อมกับ branch `main` — push แล้ว deploy อัตโนมัติ (publish: `web`)
+- Edge Functions deploy ผ่าน Supabase (ไม่ได้ deploy อัตโนมัติจาก repo)
