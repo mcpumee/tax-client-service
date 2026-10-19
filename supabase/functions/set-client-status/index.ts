@@ -6,6 +6,7 @@ import { card, LIFF_URL, pushLine } from "../_shared/line.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const BILLING_REMIND_AT = 20;
 
 async function nextCode(admin: ReturnType<typeof createClient>): Promise<string> {
   const y = (new Date().getFullYear() + 543) % 100;
@@ -63,6 +64,25 @@ Deno.serve(async (req) => {
         ], undefined, "#8a5a00");
     notified = await pushLine(admin, c.line_user_id, [msg],
       { client_id: c.id, recipient: "client", kind: `status_${b.status}` });
+  }
+
+  // เตือนตั้งบิล Gemini (แบบเสียเงิน) ครั้งเดียว เมื่อลูกค้าใช้งานเกิน 20 คน
+  if (b.status === "active") {
+    const { count } = await admin.from("clients").select("id", { count: "exact", head: true }).eq("status", "active");
+    if ((count ?? 0) > BILLING_REMIND_AT) {
+      const { data: sent } = await admin.from("notifications").select("id").eq("kind", "billing_reminder").eq("ok", true).limit(1);
+      if (!sent?.length) {
+        const { data: admins } = await admin.from("admins").select("line_user_id").not("line_user_id", "is", null);
+        for (const a of admins ?? []) {
+          await pushLine(admin, a.line_user_id!, [card("ถึงเวลาตั้งบิล Gemini ⚠️", [
+            `ลูกค้าใช้งานครบ ${count} คนแล้ว`,
+            "ตอนนี้ AI อ่านเอกสาร/แชทบอทยังใช้ Gemini แบบฟรี ซึ่งมีโควตาจำกัดและ Google อาจนำข้อมูลไปใช้ปรับปรุงระบบ",
+            "aistudio.google.com → API keys → Set up billing (ใช้ key เดิม ไม่ต้องแก้ระบบ)",
+          ], { label: "เปิด AI Studio", uri: "https://aistudio.google.com/apikey" }, "#a9822a")],
+            { recipient: "admin", kind: "billing_reminder" });
+        }
+      }
+    }
   }
 
   return json(req, { ok: true, client_code: patch.client_code ?? c.client_code, notified });
