@@ -156,6 +156,27 @@
   .sim-out{font-size:14.5px;margin-top:8px;min-height:42px}
   .sim-out small{color:var(--muted)}
   .spin{margin:30px auto}
+
+  .adv-intro{font-size:14.5px;background:color-mix(in srgb,var(--brand) 7%,transparent);border-radius:12px;padding:10px 12px;margin:6px 0 4px}
+  .grp{font-size:14px;font-weight:600;margin:16px 0 4px}
+  .adv{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px}
+  .adv-free{border-color:color-mix(in srgb,var(--ok) 35%,var(--line))}
+  .adv-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .adv-h b{font-size:14.5px}
+  .adv-h .sv{color:var(--ok);font-weight:600;font-size:13px;white-space:nowrap}
+  .adv-h .muted{color:var(--muted);font-size:12.5px;white-space:nowrap}
+  .adv-n{font-size:13.5px;margin-top:4px}
+  .adv-w{font-size:13.5px;color:var(--muted);margin-top:4px}
+  .adv-how{font-size:13.5px;margin-top:6px}
+  .adv-c{font-size:12.5px;color:var(--accent);margin-top:6px}
+  .adv-b{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .adv-b button{width:auto;margin:0;padding:7px 12px;font-size:13px}
+  .adv-b button:empty{display:none}
+  .plan-sum{font-size:14px;padding:8px 0 2px}
+  .plan-sum .ok{color:var(--ok)}
+  .qs{border:1px dashed var(--line);border-radius:12px;padding:12px;margin-top:10px}
+  .q + .q{margin-top:12px}
+  .q-t{font-size:14px;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -675,6 +696,7 @@ function readPlan(){
     children: num($("p-kids").value), children2plus2018: num($("p-kids2").value), parents: num($("p-parents").value),
     sso: num($("p-sso").value), maternity: num($("pi-maternity")?.value), donation: num($("pi-donation")?.value),
     donation2x: num($("pi-donation2x")?.value), items,
+    profile: (planLoaded[planYear] || {}).profile || undefined,
   };
 }
 async function openPlan(){
@@ -803,7 +825,9 @@ function renderHealth(){
   [...$("hl-year").children].forEach((x) => x.classList.toggle("on", +x.dataset.v === planYear));
   const built = TaxCalc.buildInput(planLoaded[planYear], docsByYear[planYear], planYear);
   const h = TaxCalc.healthScore(built);
-  health = { built, h };
+  const profile = profileFor(planYear);
+  const adv = TaxCalc.advise(built, h, profile);
+  health = { built, h, adv };
   const r = h.r, body = $("hl-body");
   $("h-plan").textContent = h.score == null ? "ต้องลดหย่อนไหม เท่าไร ลดอะไรดี" : `คะแนน ${h.score}/100 · ${LEVEL[h.level][0]}`;
 
@@ -826,9 +850,7 @@ function renderHealth(){
   const acts = [];
   const need = r.diff < 0 ? needForNoPay(r) : null;
   if (need) acts.push({ ic: "⚠️", t: `ลดหย่อนเพิ่มอีก <b>${baht(need)} บาท</b> เพื่อไม่ต้องจ่ายภาษีเพิ่มตอนยื่น`, go: "sim" });
-  if (h.overpay > 0) acts.push({ ic: "💡", t: `ใช้สิทธิประกันที่ยังเหลือ ประหยัดได้อีก <b>~${baht(h.overpay)} บาท</b>`, go: "sim" });
   if (!built.has50) acts.push({ ic: "📄", t: `ส่ง <b>50 ทวิ ปี ${thYear(planYear)}</b> ให้เจ้าหน้าที่ตรวจ ตัวเลขจะแม่นขึ้น`, go: "upload" });
-  if (built.claimedNoDoc > 0) acts.push({ ic: "🧾", t: `ส่งหลักฐานลดหย่อนที่ยังไม่มีเอกสาร <b>${built.claimedNoDoc} รายการ</b>`, go: "upload" });
   const now = new Date();
   if (planYear === now.getFullYear() && r.tax > 0) {
     const days = Math.ceil((new Date(now.getFullYear(), 11, 31, 23, 59) - now) / 86400000);
@@ -852,7 +874,7 @@ function renderHealth(){
   }).join("");
 
   // ---- ตัวจำลอง ----
-  const simOpts = ["pension", "life", "health", "parentHealth", "rmf", "esgx"].filter((k) => (r.room[k] || 0) > 0 && (k !== "parentHealth" || built.input.parents > 0));
+  const simOpts = ["pension", "life", "health", "parentHealth", "pvd", "rmf", "esgx"].filter((k) => (r.room[k] || 0) > 0 && (k !== "parentHealth" || built.input.parents > 0));
   if (!simOpts.includes(simKey)) simKey = simOpts[0] || null;
 
   body.innerHTML = `
@@ -874,6 +896,7 @@ function renderHealth(){
       <h2 style="font-size:16px">สิ่งที่ควรทำ</h2>
       ${acts.map((a) => `<div class="act" ${a.go ? `data-hgo="${a.go}"` : ""}><span>${a.ic}</span><div>${a.t}</div>${a.go ? `<span class="chev">›</span>` : ""}</div>`).join("")}
     </div>
+    ${adviceHtml(adv)}
     ${simKey ? `<div class="card" id="sim">
       <h2 style="font-size:16px">ลองคำนวณ: ถ้าซื้อเพิ่ม จะประหยัดเท่าไร</h2>
       <div class="chips" id="sim-k">${simOpts.map((k) => `<button type="button" class="chip ${k === simKey ? "on" : ""}" data-v="${k}">${esc(ITEM_T[k])}</button>`).join("")}</div>
@@ -897,6 +920,7 @@ function renderHealth(){
     if (g === "sim") $("sim")?.scrollIntoView({ behavior: "smooth", block: "center" }); else go(g);
   });
   if (simKey) setupSim();
+  wireAdvice();
 }
 function setupSim(){
   const { built, h } = health, r = h.r;
@@ -928,6 +952,81 @@ function setupSim(){
   };
   apply();
 }
+
+// ---------- แผนลดหย่อนเฉพาะบุคคล ----------
+function ageFromBirth(d){ if (!d) return null; const b = new Date(d), n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) a--; return a > 0 && a < 120 ? a : null; }
+function profileFor(year){
+  const p = (planLoaded[year] && planLoaded[year].profile) || (planLoaded[year === new Date().getFullYear() ? year - 1 : year + 1] || {}).profile || {};
+  return { ...p, age: ageFromBirth(me.birth_date) || p.age || null };
+}
+const GO_LABEL = { plan: "กรอกข้อมูล", upload: "ส่งเอกสาร" };
+function adviceHtml(a){
+  if (!a || (!a.intro && !a.questions.length)) return "";
+  const q = a.questions.slice(0, 2).map((x) => `
+    <div class="q" data-q="${x.k}"><div class="q-t">${esc(x.q)}</div>
+      ${x.opts ? `<div class="chips">${x.opts.map(([v, t]) => `<button type="button" class="chip" data-a="${v}">${esc(t)}</button>`).join("")}</div>`
+               : `<div class="row2"><input inputmode="numeric" placeholder="อายุ (ปี)" data-in="${x.k}"><button type="button" class="ghost" data-a="__in" style="margin:0">บันทึก</button></div>`}
+    </div>`).join("");
+  const card = (c, kind) => `
+    <div class="adv adv-${kind}">
+      <div class="adv-h"><b>${esc(c.t)}</b>${c.save > 0 ? `<span class="sv">ประหยัด ~${baht(c.save)}</span>` : ""}</div>
+      ${c.amt ? `<div class="adv-n">ใช้ ${baht(c.amt)} บาท → จ่ายจริงสุทธิ <b>${baht(c.net)}</b> บาท</div>` : ""}
+      <div class="adv-w">${esc(c.why)}</div>
+      ${c.how ? `<div class="adv-how">👉 ${esc(c.how)}</div>` : ""}
+      ${c.cond ? `<div class="adv-c">⚠️ ${esc(c.cond)}</div>` : ""}
+      <div class="adv-b">
+        ${c.go ? `<button class="ghost" data-go="${c.go}">${GO_LABEL[c.go] || "ไปที่เมนู"}</button>` : ""}
+        ${kind === "spend" ? `<button class="ghost" data-simk="${c.k}" data-sima="${c.amt}">ลองคำนวณ</button>` : ""}
+        ${kind === "spend" && SELL_TOPIC[c.k] ? `<button class="ghost" data-lead="${c.k}" data-save="${c.save}">สนใจ</button>` : ""}
+      </div>
+    </div>`;
+  return `<div class="card" id="advice">
+    <h2 style="font-size:16px">แผนลดหย่อนสำหรับคุณ</h2>
+    <p class="adv-intro">${esc(a.intro)}</p>
+    ${q ? `<div class="qs"><div class="sub" style="margin:0 0 6px">ตอบสั้น ๆ เพื่อคำแนะนำที่ตรงกับคุณมากขึ้น</div>${q}</div>` : ""}
+    ${a.free.length ? `<div class="grp">✅ ทำได้เลย ไม่ต้องเสียเงินเพิ่ม</div>${a.free.map((c) => card(c, "free")).join("")}` : ""}
+    ${a.adjust.length ? `<div class="grp">⚖️ ปรับการหักภาษีให้ตรง</div>${a.adjust.map((c) => card(c, "adjust")).join("")}` : ""}
+    ${a.plan ? `<div class="grp">💰 ถ้าจะใช้เงินลดหย่อน — แผนที่แนะนำ</div>
+      <div class="plan-sum">ใช้รวม <b>${baht(a.plan.amt)}</b> บาท · ประหยัดภาษี <b class="ok">${baht(a.plan.save)}</b> บาท · ${esc(a.plan.goal)}</div>
+      ${a.spend.map((c) => card(c, "spend")).join("")}` : ""}
+    ${a.more.length ? `<details class="more"><summary>ทางเลือกที่เหมาะกับคุณเพิ่มเติม</summary>
+      ${a.more.map((c) => `<div class="adv"><div class="adv-h"><b>${esc(c.t)}</b><span class="muted">เหลือสิทธิ ${baht(c.room)}</span></div><div class="adv-w">${esc(c.why)}</div>${c.cond ? `<div class="adv-c">⚠️ ${esc(c.cond)}</div>` : ""}<div class="adv-b"><button class="ghost" data-simk="${c.k}" data-sima="${Math.min(c.room, c.amt)}">ลองคำนวณ</button>${SELL_TOPIC[c.k] ? `<button class="ghost" data-lead="${c.k}" data-save="${c.save}">สนใจ</button>` : ""}</div></div>`).join("")}
+    </details>` : ""}
+    ${a.skip.length ? `<details class="more"><summary>อาจยังไม่เหมาะกับคุณตอนนี้</summary>
+      ${a.skip.map((c) => `<div class="adv adv-skip"><div class="adv-h"><b>${esc(c.t)}</b><span class="muted">เหลือสิทธิ ${baht(c.room)}</span></div><div class="adv-w">${esc(c.why)}</div>${c.cond ? `<div class="adv-c">⚠️ ${esc(c.cond)}</div>` : ""}</div>`).join("")}
+    </details>` : ""}
+  </div>`;
+}
+function wireAdvice(){
+  const box = $("advice"); if (!box) return;
+  box.querySelectorAll(".q").forEach((el) => el.addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const k = el.dataset.q;
+    const v = b.dataset.a === "__in" ? el.querySelector("[data-in]").value : b.dataset.a;
+    await saveProfileAnswer(k, v);
+  }));
+  box.querySelectorAll("[data-simk]").forEach((b) => b.onclick = () => {
+    if (!$("sim")) return;
+    simKey = b.dataset.simk;
+    setupSim();
+    [...$("sim-k").children].forEach((x) => x.classList.toggle("on", x.dataset.v === simKey));
+    $("sim-r").value = b.dataset.sima; $("sim-r").dispatchEvent(new Event("input"));
+    $("sim").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+async function saveProfileAnswer(k, v){
+  const plan = { ...(planLoaded[planYear] || {}) };
+  const prof = { ...(plan.profile || {}) };
+  if (k === "parents") { plan.parents = +v || 0; prof.parentsAsked = true; }
+  else if (k === "age") { const a = parseInt(v, 10); if (!(a > 15 && a < 100)) { alert("กรุณากรอกอายุให้ถูกต้อง"); return; } prof.age = a; }
+  else prof[k] = v === "1";
+  plan.profile = prof;
+  planLoaded[planYear] = plan;
+  renderHealth();
+  const { error } = await sb.from("client_tax_inputs").upsert({ client_id: me.id, tax_year: planYear, inputs: plan, updated_at: new Date().toISOString() });
+  if (error) console.warn("save profile", error.message);
+}
+
 // ลดหย่อนเพิ่มเท่าไรจึงไม่ต้องจ่ายเพิ่ม (ภาษี ≤ ที่ถูกหักไว้)
 function needForNoPay(r){
   const R = TaxCalc.RULES[r.year] || TaxCalc.RULES[2026];
