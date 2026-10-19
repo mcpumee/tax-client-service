@@ -313,6 +313,28 @@ async function replyMsg(token: string, msg: unknown) {
   if (!r.ok) console.error("reply", r.status, (await r.text()).slice(0, 200));
 }
 
+// admin พิมพ์ "เช็กระบบ" → ตรวจ key/การเชื่อมต่อ (ไม่แสดงค่า key)
+async function diag(db: SupabaseClient, token: string) {
+  const lines: string[] = [];
+  let gemOk = false, gemErr: string | null = null;
+  if (!GEMINI_KEY) gemErr = "ไม่พบ GEMINI_API_KEY";
+  else {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ตอบคำว่า OK" }] }], generationConfig: { maxOutputTokens: 10, thinkingConfig: { thinkingBudget: 0 } } }),
+      });
+      gemOk = r.ok;
+      if (!r.ok) gemErr = `${r.status} ${(await r.text()).replace(/\s+/g, " ").slice(0, 160)}`;
+    } catch (e) { gemErr = String(e).slice(0, 160); }
+  }
+  lines.push(GEMINI_KEY ? `🔑 GEMINI_API_KEY: ตั้งแล้ว (…${GEMINI_KEY.slice(-4)})` : "🔑 GEMINI_API_KEY: ❌ ยังไม่ได้ตั้ง");
+  lines.push(gemOk ? `🤖 Gemini (${GEMINI_MODEL}): ✅ ใช้งานได้` : `🤖 Gemini: ❌ ${gemErr}`);
+  lines.push(SECRET ? "💬 LINE webhook: ✅" : "💬 LINE webhook: ❌");
+  await db.from("notifications").insert({ recipient: "admin", kind: "diag_gemini", ok: gemOk, error: gemErr });
+  return reply(token, "สถานะระบบ\n" + lines.join("\n"));
+}
+
 type ClientRow = { id: string; client_code: string | null; first_name: string; last_name: string; status: Status };
 type ThreadRow = { line_user_id: string; bot_paused_until: string | null; last_admin_ping: string | null };
 
@@ -350,6 +372,7 @@ async function handle(db: SupabaseClient, ev: any) {
 
   const text = String(m.text ?? "").trim();
   if (!text) return;
+  if (isAdmin && /^(เช็กระบบ|เช็คระบบ|status)$/i.test(text)) return diag(db, ev.replyToken);
   if (RE_RESUME.test(text)) {
     if (thread) await db.from("chat_threads").update({ bot_paused_until: null, updated_at: new Date().toISOString() }).eq("line_user_id", uid);
     return reply(ev.replyToken, "สวัสดีครับ ผู้ช่วย Tax Assistance พร้อมช่วยเรื่องการใช้งานแอปครับ เลือกเมนูหรือพิมพ์คำถามได้เลย", s === "none" ? ["reg", "staff"] : ["health", "upload", "docs", "staff"]);
