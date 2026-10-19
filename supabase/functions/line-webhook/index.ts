@@ -103,6 +103,19 @@ async function reply(token: string, text: string, btn: QRKey[] = []) {
   if (!r.ok) console.error("reply", r.status, (await r.text()).slice(0, 200));
 }
 
+// จุดไข่ปลา "กำลังพิมพ์…" ของ LINE (แชท 1:1) — หายเองเมื่อข้อความตอบกลับถึง
+const MIN_THINK_MS = 1500;
+async function startLoading(uid: string) {
+  try {
+    await fetch("https://api.line.me/v2/bot/chat/loading/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ chatId: uid, loadingSeconds: 20 }),
+    });
+  } catch { /* ไม่สำคัญ */ }
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function displayName(uid: string): Promise<string> {
   try {
     const r = await fetch(`https://api.line.me/v2/bot/profile/${uid}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
@@ -222,6 +235,7 @@ async function handle(db: SupabaseClient, ev: any) {
   if (m.type !== "text") {
     if (paused || m.type === "sticker") return;
     if (m.type === "image" || m.type === "file") {
+      await startLoading(uid); await sleep(MIN_THINK_MS);
       return reply(ev.replyToken, s === "active"
         ? "ถ้าเป็นเอกสารสำหรับยื่นภาษี แนะนำส่งผ่านเมนู \"นำส่งเอกสาร\" นะครับ เอกสารจะถูกเก็บเข้าระบบอย่างปลอดภัย และ AI ช่วยอ่านตัวเลขให้ทันที"
         : "ได้รับไฟล์แล้วครับ ถ้าเป็นเอกสารภาษี กรุณาลงทะเบียนและส่งผ่านเมนู \"นำส่งเอกสาร\" เพื่อความปลอดภัยของข้อมูลครับ",
@@ -237,9 +251,13 @@ async function handle(db: SupabaseClient, ev: any) {
     return reply(ev.replyToken, "สวัสดีครับ ผู้ช่วย Tax Assistance พร้อมช่วยเรื่องการใช้งานแอปครับ เลือกเมนูหรือพิมพ์คำถามได้เลย", s === "none" ? ["reg", "staff"] : ["health", "upload", "docs", "staff"]);
   }
   if (paused) return;                                      // เจ้าหน้าที่กำลังดูแล — บอทเงียบ
-  if (RE_STAFF.test(text) && text.length <= 40) return handoff(db, ev, uid, client, thread, "staff", text);
+  const t0 = Date.now();
+  await startLoading(uid);
+  const think = async () => { const w = MIN_THINK_MS - (Date.now() - t0); if (w > 0) await sleep(w); };
+  if (RE_STAFF.test(text) && text.length <= 40) { await think(); return handoff(db, ev, uid, client, thread, "staff", text); }
 
   const r = (await askAI(mask(text), s)) ?? byRules(text, s);
+  await think();
   if (r.intent === "tax") return handoff(db, ev, uid, client, thread, "tax", text);
   if (r.intent === "staff") return handoff(db, ev, uid, client, thread, "staff", text);
 
