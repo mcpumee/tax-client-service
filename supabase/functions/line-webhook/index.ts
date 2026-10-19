@@ -3,7 +3,7 @@
 // • คำถามภาษี / ขอคุยเจ้าหน้าที่ → ส่งต่อเจ้าหน้าที่ แจ้ง admin ทาง LINE และ "พักบอท" ให้คนคุยเอง
 // ความปลอดภัย: ตรวจลายเซ็น LINE ทุกครั้ง, ปิดตัวเลขยาว ๆ (เลข ปชช./บัญชี/โทร) ก่อนส่ง AI และก่อนบันทึก
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
-import { ADMIN_URL, LIFF_URL, card, pushLine } from "../_shared/line.ts";
+import { ADMIN_URL, LIFF_URL, pushLine } from "../_shared/line.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -11,7 +11,7 @@ const SECRET = Deno.env.get("LINE_CHANNEL_SECRET");
 const TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
-const PAUSE_HOURS = 12;          // บอทเงียบหลังส่งต่อเจ้าหน้าที่
+const PAUSE_HOURS = 4;           // บอทเงียบหลัง admin กด "ฉันจะตอบเอง"
 const PING_GAP_MIN = 15;         // แจ้ง admin ซ้ำได้ไม่ถี่กว่านี้ต่อผู้ใช้
 
 // ---------- ปุ่มลัด ----------
@@ -188,19 +188,19 @@ function byRules(text: string, s: Status): { intent: string; reply: string; butt
 async function handoff(db: SupabaseClient, ev: { replyToken: string }, uid: string, client: ClientRow | null,
   thread: ThreadRow | null, kind: "tax" | "staff", text: string) {
   const now = new Date();
-  await db.from("support_requests").insert({ line_user_id: uid, client_id: client?.id ?? null, kind, message: mask(text) });
+  const { data: sr } = await db.from("support_requests")
+    .insert({ line_user_id: uid, client_id: client?.id ?? null, kind, message: mask(text) }).select("id").single();
   const ping = !thread?.last_admin_ping || now.getTime() - new Date(thread.last_admin_ping).getTime() > PING_GAP_MIN * 60000;
   await db.from("chat_threads").upsert({
     line_user_id: uid, client_id: client?.id ?? null,
-    bot_paused_until: new Date(now.getTime() + PAUSE_HOURS * 3600000).toISOString(),
     last_admin_ping: ping ? now.toISOString() : thread?.last_admin_ping ?? null,
     updated_at: now.toISOString(),
   });
 
   const msg = kind === "tax"
-    ? "คำถามเรื่องภาษีขอให้เจ้าหน้าที่เป็นคนตอบนะครับ เพราะต้องดูจากข้อมูลจริงของคุณจึงจะแนะนำได้ถูกต้อง 🙏\nส่งเรื่องให้เจ้าหน้าที่แล้ว จะตอบกลับในแชทนี้ครับ" +
+    ? "คำถามเรื่องภาษีขอให้เจ้าหน้าที่เป็นคนตอบนะครับ เพราะต้องดูจากข้อมูลจริงของคุณจึงจะแนะนำได้ถูกต้อง 🙏\nส่งเรื่องให้เจ้าหน้าที่แล้ว จะตอบกลับในแชทนี้ครับ\nระหว่างนี้ถามเรื่องการใช้งานแอปกับผู้ช่วยได้ตามปกติครับ" +
       (client?.status === "active" ? "\n\nระหว่างรอ ดูภาพรวมภาษีของคุณได้ที่ \"สุขภาพภาษี\" ครับ" : "")
-    : "ส่งเรื่องให้เจ้าหน้าที่แล้วครับ 🙏 จะตอบกลับในแชทนี้โดยเร็ว พิมพ์รายละเอียดเพิ่มเติมไว้ได้เลยครับ";
+    : "ส่งเรื่องให้เจ้าหน้าที่แล้วครับ 🙏 จะตอบกลับในแชทนี้โดยเร็ว พิมพ์รายละเอียดเพิ่มเติมไว้ได้เลย\nระหว่างนี้ถามเรื่องการใช้งานแอปกับผู้ช่วยได้ตามปกติครับ";
   await reply(ev.replyToken, msg, kind === "tax" && client?.status === "active" ? ["health"] : []);
 
   if (!ping) return;
@@ -208,12 +208,65 @@ async function handoff(db: SupabaseClient, ev: { replyToken: string }, uid: stri
     : `${(await displayName(uid)) || "ผู้ใช้ LINE"} (ยังไม่ลงทะเบียน)`;
   const { data: admins } = await db.from("admins").select("line_user_id").not("line_user_id", "is", null);
   for (const a of admins ?? []) {
-    if (a.line_user_id === uid) continue;
-    await pushLine(db, a.line_user_id!, [card(kind === "tax" ? "ลูกค้าถามเรื่องภาษี 💬" : "ลูกค้าขอคุยกับเจ้าหน้าที่ 💬", [
-      who, text === "ปรึกษาเจ้าหน้าที่" ? "(กดเมนูปรึกษาเจ้าหน้าที่)" : `"${mask(text).slice(0, 200)}"`,
-      `ตอบได้ในแชท LINE OA · บอทพักให้ ${PAUSE_HOURS} ชม.`,
-    ], { label: "เปิดหลังบ้าน", uri: ADMIN_URL }, "#a9822a")], { client_id: client?.id ?? null, recipient: "admin", kind: "support" });
+    await pushLine(db, a.line_user_id!, [adminCard(
+      kind === "tax" ? "ลูกค้าถามเรื่องภาษี 💬" : "ลูกค้าขอคุยกับเจ้าหน้าที่ 💬",
+      [who, text === "ปรึกษาเจ้าหน้าที่" ? "(กดเมนูปรึกษาเจ้าหน้าที่)" : `"${mask(text).slice(0, 200)}"`,
+       `กด "ฉันจะตอบเอง" แล้วตอบในแชท LINE OA — บอทจะพักกับลูกค้าคนนี้ ${PAUSE_HOURS} ชม.`],
+      sr?.id ?? "")], { client_id: client?.id ?? null, recipient: "admin", kind: "support" });
   }
+}
+
+function adminCard(title: string, lines: string[], reqId: string) {
+  const gold = "#a9822a";
+  return {
+    type: "flex", altText: title,
+    contents: {
+      type: "bubble",
+      header: { type: "box", layout: "vertical", backgroundColor: gold, paddingAll: "16px",
+        contents: [{ type: "text", text: title, color: "#ffffff", weight: "bold", size: "md", wrap: true }] },
+      body: { type: "box", layout: "vertical", spacing: "sm", paddingAll: "16px",
+        contents: lines.map((t) => ({ type: "text", text: t, size: "sm", color: "#333333", wrap: true })) },
+      footer: { type: "box", layout: "vertical", spacing: "sm", paddingAll: "12px", contents: [
+        ...(reqId ? [{ type: "button", style: "primary", color: "#26324a", height: "sm",
+          action: { type: "postback", label: `ฉันจะตอบเอง (พักบอท ${PAUSE_HOURS} ชม.)`, data: `takeover:${reqId}`, displayText: "ฉันจะตอบเอง" } }] : []),
+        { type: "button", style: "secondary", height: "sm", action: { type: "uri", label: "เปิดหลังบ้าน", uri: ADMIN_URL } },
+      ] },
+    },
+  };
+}
+
+// admin กดปุ่มในการ์ดแจ้งเตือน: takeover = พักบอท, release = เปิดบอทคืน
+// deno-lint-ignore no-explicit-any
+async function adminPostback(db: SupabaseClient, ev: any) {
+  const [act, id] = String(ev.postback?.data ?? "").split(":");
+  if (!["takeover", "release"].includes(act) || !id) return;
+  const { data: r } = await db.from("support_requests").select("id, line_user_id, client_id, clients(first_name, last_name)").eq("id", id).maybeSingle();
+  if (!r) return reply(ev.replyToken, "ไม่พบเรื่องนี้แล้วครับ");
+  // deno-lint-ignore no-explicit-any
+  const c = r.clients as any;
+  const who = c ? `คุณ${c.first_name} ${c.last_name}` : "ลูกค้า";
+  const now = new Date();
+  if (act === "takeover") {
+    const until = new Date(now.getTime() + PAUSE_HOURS * 3600000);
+    await db.from("chat_threads").upsert({ line_user_id: r.line_user_id, client_id: r.client_id, bot_paused_until: until.toISOString(), updated_at: now.toISOString() });
+    const hhmm = until.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+    return replyMsg(ev.replyToken, {
+      type: "text", text: `✅ บอทพักกับ${who}ถึง ${hhmm} น.\nตอบลูกค้าในแชท LINE OA ได้เลยครับ`,
+      quickReply: { items: [{ type: "action", action: { type: "postback", label: "ตอบเสร็จ เปิดบอทคืน", data: `release:${id}`, displayText: "ตอบเสร็จแล้ว" } }] },
+    });
+  }
+  await db.from("chat_threads").update({ bot_paused_until: null, updated_at: now.toISOString() }).eq("line_user_id", r.line_user_id);
+  await db.from("support_requests").update({ status: "done", done_at: now.toISOString() }).eq("line_user_id", r.line_user_id).eq("status", "new");
+  return reply(ev.replyToken, `🤖 บอทกลับมาตอบ${who}แล้วครับ`);
+}
+
+async function replyMsg(token: string, msg: unknown) {
+  const r = await fetch("https://api.line.me/v2/bot/message/reply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ replyToken: token, messages: [msg] }),
+  });
+  if (!r.ok) console.error("reply", r.status, (await r.text()).slice(0, 200));
 }
 
 type ClientRow = { id: string; client_code: string | null; first_name: string; last_name: string; status: Status };
@@ -222,8 +275,13 @@ type ThreadRow = { line_user_id: string; bot_paused_until: string | null; last_a
 // deno-lint-ignore no-explicit-any
 async function handle(db: SupabaseClient, ev: any) {
   if (ev.source?.type !== "user" || !ev.replyToken || ev.mode === "standby") return;
-  if (ev.type !== "message") return;                       // follow ใช้ข้อความต้อนรับของ OA Manager
   const uid: string = ev.source.userId;
+  if (ev.type === "postback") {
+    const { data: a } = await db.from("admins").select("user_id").eq("line_user_id", uid).limit(1);
+    if (a?.length) await adminPostback(db, ev);
+    return;
+  }
+  if (ev.type !== "message") return;                       // follow ใช้ข้อความต้อนรับของ OA Manager
   const [{ data: client }, { data: thread }, { data: adm }] = await Promise.all([
     db.from("clients").select("id, client_code, first_name, last_name, status").eq("line_user_id", uid).maybeSingle(),
     db.from("chat_threads").select("line_user_id, bot_paused_until, last_admin_ping").eq("line_user_id", uid).maybeSingle(),

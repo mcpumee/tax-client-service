@@ -606,13 +606,22 @@ async function loadChat(){
           <span class="meta">· ${esc(KIND_CHAT[r.kind] || r.kind)} · ${fmtDate(r.created_at)}</span></div>
         <div class="meta">${r.message && r.message !== "ปรึกษาเจ้าหน้าที่" ? `"${esc(r.message)}"` : "(กดเมนูปรึกษาเจ้าหน้าที่)"}
           ${r.status === "new" && paused.has(r.line_user_id) ? ` · 🤫 บอทพักถึง ${new Date(paused.get(r.line_user_id)).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}` : ""}</div></div>
-      ${r.status === "new" ? `<div class="act"><button class="ghost" data-chat="${r.id}" data-uid="${esc(r.line_user_id)}">ตอบแล้ว · เปิดบอท</button></div>` : `<span class="pill p-confirmed">เสร็จ</span>`}
+      ${r.status === "new" ? `<div class="act">${paused.has(r.line_user_id) ? "" : `<button class="ghost" data-take="${r.id}" data-uid="${esc(r.line_user_id)}" data-cid="${r.client_id || ""}">ฉันจะตอบเอง (4 ชม.)</button>`}<button class="ghost" data-chat="${r.id}" data-uid="${esc(r.line_user_id)}">ตอบเสร็จ · เปิดบอท</button></div>` : `<span class="pill p-confirmed">เสร็จ</span>`}
     </div>`;
   const open = (reqs || []).filter((r) => r.status === "new"), done = (reqs || []).filter((r) => r.status !== "new").slice(0, 30);
   $("list").innerHTML =
-    `<div class="sec-h">รอตอบ (${open.length}) — ตอบในแชท LINE OA</div>` + (open.map(row).join("") || `<div class="empty">ไม่มีคำถามค้าง 🎉</div>`) +
+    `<div class="sec-h">รอตอบ (${open.length}) — กด "ฉันจะตอบเอง" แล้วตอบในแชท LINE OA</div>` + (open.map(row).join("") || `<div class="empty">ไม่มีคำถามค้าง 🎉</div>`) +
     (done.length ? `<div class="sec-h">ล่าสุดที่ปิดแล้ว</div>` + done.map(row).join("") : "");
 }
+$("list").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-take]"); if (!b) return;
+  e.stopPropagation();
+  b.disabled = true;
+  const until = new Date(Date.now() + 4 * 3600000).toISOString();
+  const { error } = await sb.from("chat_threads").update({ bot_paused_until: until, updated_at: new Date().toISOString() }).eq("line_user_id", b.dataset.uid);
+  if (error) { b.disabled = false; return toast("บันทึกไม่สำเร็จ"); }
+  toast("บอทพักกับลูกค้าคนนี้ 4 ชม. · ตอบในแชท LINE OA ได้เลย"); loadChat();
+}, true);
 $("list").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-chat]"); if (!b) return;
   e.stopPropagation();
