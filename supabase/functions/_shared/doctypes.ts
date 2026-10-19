@@ -13,4 +13,9 @@ export const DOC_LABEL: Record<string, string> = {
   house_reg: "ทะเบียนบ้าน",
   other: "เอกสารอื่น ๆ",
 };
+export const DOC_CATEGORY: Record<string, string> = {
+  "50tawi": "income", insurance_cert: "deduction", fund_cert: "deduction", mortgage_interest: "deduction",
+  donation: "deduction", rental_contract: "income", platform_report: "income", statement: "income",
+  salary_slip: "income", receipt: "expense", id_card: "identity", house_reg: "identity", other: "other",
+};
 export const thYear = (y: number | null) => (y ? String(y + 543) : "–");

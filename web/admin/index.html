@@ -116,6 +116,7 @@
   .item .act{display:flex;gap:6px}
   .item .act button{padding:6px 10px;font-size:12.5px}
   .save{color:var(--ok);font-weight:600;font-size:13px;white-space:nowrap}
+  .ai-note{font-size:13px;background:color-mix(in srgb,var(--accent) 12%,transparent);border-radius:10px;padding:8px 10px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -225,6 +226,7 @@
   <form class="box" id="f-dd">
     <h1 id="dd-title">ตัวเลขจากเอกสาร</h1>
     <p>ตัวเลขนี้จะใช้คำนวณ "สุขภาพภาษี" ของลูกค้า เว้นว่างได้ถ้าไม่มี</p>
+    <div id="dd-ai" class="ai-note" hidden></div>
     <div id="dd-fields"></div>
     <button type="button" class="ghost" id="dd-view" style="margin-top:12px">เปิดดูเอกสาร</button>
     <button type="submit">ยืนยันเอกสารผ่าน</button>
@@ -447,7 +449,7 @@ const DOC_ST = { pending_review:"รอตรวจ", confirmed:"ตรวจแ
 const thY = (y) => y ? y + 543 : "–";
 let clientDocs = [];
 async function loadClientDocs(id){
-  const { data } = await sb.from("documents").select("id, tax_year, doc_type, file_path, status, review_note, created_at, original_name, extracted_data")
+  const { data } = await sb.from("documents").select("id, tax_year, doc_type, file_path, status, review_note, created_at, original_name, extracted_data, ai_status, ai_doc_type, ai_confidence, ai_data, ai_issues")
     .eq("client_id", id).order("created_at", { ascending: false });
   clientDocs = data || [];
   $("d-docs").innerHTML = clientDocs.length ? clientDocs.map((d) => `
@@ -455,9 +457,12 @@ async function loadClientDocs(id){
       <div class="g">${esc(DOC_LABEL[d.doc_type] || d.doc_type)} · ปี ${thY(d.tax_year)}
         <small>${fmtDate(d.created_at)} · <span class="pill p-${d.status}">${DOC_ST[d.status]}</span></small>
         ${d.status === "rejected" && d.review_note ? `<span class="rn">${esc(d.review_note)}</span>` : ""}
-        ${d.extracted_data ? `<small>${esc(Object.entries(d.extracted_data).map(([k,v]) => k + ": " + (typeof v === "number" ? v.toLocaleString("th-TH") : v)).join(" · "))}</small>` : ""}</div>
+        ${d.extracted_data ? `<small>✓ ${esc(fmtData(d.extracted_data))}</small>` : ""}
+        ${!d.extracted_data && d.ai_status === "done" ? `<small>🤖 ${esc(fmtData(d.ai_data || {}) || "อ่านแล้ว ไม่พบตัวเลข")}${d.ai_doc_type && d.ai_doc_type !== d.doc_type ? ` · AI คิดว่าเป็น ${esc(DOC_LABEL[d.ai_doc_type] || d.ai_doc_type)}` : ""}</small>` : ""}
+        ${(d.ai_issues || []).map((i) => `<span class="rn">⚠️ ${esc(i.msg)}</span>`).join("")}</div>
       <div class="btns">
         <button class="ghost" data-a="view">เปิด</button>
+        ${d.status === "pending_review" ? `<button class="ghost" data-a="ai">🤖</button>` : ""}
         ${d.status !== "confirmed" ? `<button data-a="confirmed">ผ่าน</button>` : (DATA_FIELDS[d.doc_type] ? `<button class="ghost" data-a="confirmed">แก้ตัวเลข</button>` : "")}
         ${d.status !== "rejected" ? `<button class="danger" data-a="rejected">ส่งใหม่</button>` : ""}
       </div>
@@ -474,6 +479,13 @@ $("d-docs").onclick = async (e) => {
     if (error || !data?.signedUrl) { w?.close(); return toast("เปิดไฟล์ไม่สำเร็จ"); }
     if (w) w.location = data.signedUrl; else location.href = data.signedUrl;
     return;
+  }
+  if (b.dataset.a === "ai") {
+    b.disabled = true; b.textContent = "…";
+    const { data: x, error: e2 } = await sb.functions.invoke("read-document", { body: { document_id: d.id } });
+    b.disabled = false; b.textContent = "🤖";
+    if (e2 || !x?.ok) return toast(x?.reason === "ai_not_configured" ? "ยังไม่ได้ตั้งค่า GEMINI_API_KEY" : "AI อ่านไม่สำเร็จ");
+    toast("AI อ่านเอกสารแล้ว"); return loadClientDocs(current.id);
   }
   let note = null;
   if (b.dataset.a === "rejected") {
@@ -496,7 +508,7 @@ $("d-docs").onclick = async (e) => {
 // รายการเอกสารรอตรวจทั้งหมด
 async function loadPendingDocs(){
   const { data, error } = await sb.from("documents")
-    .select("id, client_id, tax_year, doc_type, created_at, clients(first_name, last_name, client_code)")
+    .select("id, client_id, tax_year, doc_type, created_at, ai_issues, ai_data, clients(first_name, last_name, client_code)")
     .eq("status", "pending_review").order("created_at").limit(300);
   if (error) { $("list").innerHTML = `<div class="empty">โหลดไม่สำเร็จ</div>`; return; }
   $("list").innerHTML = data.length ? data.map((d) => `
@@ -504,6 +516,7 @@ async function loadPendingDocs(){
       <div class="av">📄</div>
       <div class="grow"><div class="nm">${esc(d.clients?.first_name || "")} ${esc(d.clients?.last_name || "")}</div>
         <div class="meta">${esc(d.clients?.client_code || "")} · ${esc(DOC_LABEL[d.doc_type] || d.doc_type)} · ปี ${thY(d.tax_year)} · ${fmtDate(d.created_at)}</div></div>
+      ${d.ai_issues?.length ? `<span class="pill p-rejected">⚠️ ${d.ai_issues.length}</span>` : d.ai_data && Object.keys(d.ai_data).length ? `<span class="pill p-confirmed">🤖 อ่านแล้ว</span>` : ""}
       <span class="pill p-pending_review">รอตรวจ</span>
     </div>`).join("") : `<div class="empty">ไม่มีเอกสารรอตรวจ 🎉</div>`;
 }
@@ -573,19 +586,37 @@ $("list").addEventListener("click", async (e) => {
   toast(b.dataset.st === "closed" ? "ปิดคำขอแล้ว" : "บันทึกว่าติดต่อแล้ว"); loadSales();
 }, true);
 
+
+const KIND_LABEL = { life:"ชีวิต", health:"สุขภาพ", pension:"บำนาญ", parentHealth:"สุขภาพพ่อแม่", spouseLife:"ชีวิตคู่สมรส", rmf:"RMF", esgx:"ESGX", pvd:"PVD", gor:"กอช." };
+const DATA_LABEL = { income:"เงินได้", withheld:"ภาษีหัก", sso:"ปกส.", pvd:"PVD", amount:"ยอด" };
+function fmtData(x){
+  const out = [];
+  for (const k of ["income","withheld","sso","pvd","amount"]) if (x[k]) out.push(`${DATA_LABEL[k]} ${Number(x[k]).toLocaleString("th-TH")}`);
+  for (const it of x.items || []) out.push(`${KIND_LABEL[it.kind] || it.kind} ${Number(it.amount).toLocaleString("th-TH")}`);
+  if (x.kind) out.push(KIND_LABEL[x.kind] || x.kind);
+  if (x.double) out.push("บริจาค 2 เท่า");
+  return out.join(" · ");
+}
 // ---------- กรอกตัวเลขตอนยืนยันเอกสาร ----------
 const DATA_FIELDS = {
   "50tawi": [{ k:"income", t:"เงินได้ทั้งปี (ช่องจำนวนเงินที่จ่าย)" }, { k:"withheld", t:"ภาษีที่หักและนำส่งไว้" },
              { k:"sso", t:"เงินสมทบประกันสังคม (ถ้ามี)" }, { k:"pvd", t:"เงินสะสม PVD (ถ้ามี)" }],
-  insurance_cert: [{ k:"kind", t:"ประเภท", opts:[["life","ประกันชีวิต/สะสมทรัพย์"],["health","ประกันสุขภาพตัวเอง"],["pension","ประกันบำนาญ"],["parentHealth","ประกันสุขภาพบิดามารดา"],["spouseLife","ประกันชีวิตคู่สมรส"]] },
-                   { k:"amount", t:"เบี้ยประกันที่จ่ายในปีภาษีนี้" }],
+  insurance_cert: [{ k:"i_life", t:"ประกันชีวิต/สะสมทรัพย์" }, { k:"i_health", t:"ประกันสุขภาพตัวเอง" }, { k:"i_pension", t:"ประกันบำนาญ" },
+                   { k:"i_parentHealth", t:"ประกันสุขภาพบิดามารดา" }, { k:"i_spouseLife", t:"ประกันชีวิตคู่สมรส" }],
   fund_cert: [{ k:"kind", t:"ประเภท", opts:[["rmf","RMF"],["esgx","Thai ESGX"],["pvd","PVD / กบข."],["gor","กอช."]] }, { k:"amount", t:"ยอดซื้อ/สะสมในปีนี้" }],
   mortgage_interest: [{ k:"amount", t:"ดอกเบี้ยเงินกู้ที่จ่ายในปีนี้" }],
   donation: [{ k:"amount", t:"ยอดบริจาค" }, { k:"double", t:"ประเภท", opts:[["","บริจาคทั่วไป"],["1","การศึกษา/กีฬา/รพ.รัฐ (2 เท่า)"]] }],
 };
 function askDocData(d){
   return new Promise((resolve) => {
-    const fields = DATA_FIELDS[d.doc_type], prev = d.extracted_data || {};
+    const fields = DATA_FIELDS[d.doc_type];
+    const src = d.extracted_data || d.ai_data || {};
+    const prev = { ...src };
+    for (const it of src.items || []) prev["i_" + it.kind] = (prev["i_" + it.kind] || 0) + it.amount;
+    if (src.kind && src.amount && d.doc_type === "insurance_cert") prev["i_" + src.kind] = src.amount;
+    const fromAI = !d.extracted_data && d.ai_data && Object.keys(d.ai_data).length;
+    $("dd-ai").hidden = !fromAI;
+    $("dd-ai").innerHTML = fromAI ? `🤖 ค่าที่เติมไว้มาจาก AI อ่านเอกสาร — กรุณาตรวจกับเอกสารจริงก่อนยืนยัน${(d.ai_issues || []).map((i) => `<br>⚠️ ${esc(i.msg)}`).join("")}` : "";
     $("dd-title").textContent = DOC_LABEL[d.doc_type] || "ตัวเลขจากเอกสาร";
     $("dd-fields").innerHTML = fields.map((f) => f.opts
       ? `<label for="dd-${f.k}">${esc(f.t)}</label><select id="dd-${f.k}" style="width:100%;font:inherit;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)">${f.opts.map(([v,t]) => `<option value="${v}" ${String(prev[f.k] ?? "") === v || (f.k==="double" && prev.double && v==="1") ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`
@@ -602,6 +633,10 @@ function askDocData(d){
         else if (f.k === "double") out.double = v === "1";
         else { const n = parseFloat(v.replace(/[^\d.]/g, "")); if (n > 0) out[f.k] = n; }
       }
+      const items = Object.keys(out).filter((k) => k.startsWith("i_")).map((k) => ({ kind: k.slice(2), amount: out[k] }));
+      Object.keys(out).filter((k) => k.startsWith("i_")).forEach((k) => delete out[k]);
+      if (items.length) out.items = items;
+      if (src.issuer) out.issuer = src.issuer;
       close(out);
     };
     $("v-dd").hidden = false;

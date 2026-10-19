@@ -155,7 +155,7 @@
    *
    * extracted_data ต่อประเภทเอกสาร:
    *   50tawi            { income, withheld, sso?, pvd? }
-   *   insurance_cert    { kind: life|health|pension|parentHealth|spouseLife, amount }
+   *   insurance_cert    { items: [{ kind: life|health|pension|parentHealth|spouseLife, amount }] }  (รุ่นเก่า: { kind, amount })
    *   fund_cert         { kind: rmf|esgx|pvd|gor, amount }
    *   mortgage_interest { amount }            → homeLoan
    *   donation          { amount, double? }   → donation / donation2x
@@ -169,7 +169,10 @@
       const x = doc.extracted_data || {};
       if (doc.doc_type === "50tawi") { d.n50++; d.income += n0(x.income); d.withheld += n0(x.withheld); d.sso += n0(x.sso);
         if (n0(x.pvd)) d.items.pvd = (d.items.pvd || 0) + n0(x.pvd); }
-      else if (doc.doc_type === "insurance_cert" || doc.doc_type === "fund_cert") { if (x.kind) d.items[x.kind] = (d.items[x.kind] || 0) + n0(x.amount); }
+      else if (doc.doc_type === "insurance_cert" || doc.doc_type === "fund_cert") {
+        if (Array.isArray(x.items)) for (const it of x.items) { if (it && it.kind) d.items[it.kind] = (d.items[it.kind] || 0) + n0(it.amount); }
+        else if (x.kind) d.items[x.kind] = (d.items[x.kind] || 0) + n0(x.amount);
+      }
       else if (doc.doc_type === "mortgage_interest") d.items.homeLoan = (d.items.homeLoan || 0) + n0(x.amount);
       else if (doc.doc_type === "donation") { if (x.double) d.donation2x += n0(x.amount); else d.donation += n0(x.amount); }
     }

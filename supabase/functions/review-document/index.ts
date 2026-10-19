@@ -38,6 +38,14 @@ Deno.serve(async (req) => {
     const kind = String((b.data as Record<string, unknown>).kind ?? "");
     if (KINDS.includes(kind)) extracted.kind = kind;
     if ((b.data as Record<string, unknown>).double === true) extracted.double = true;
+    const items = (b.data as Record<string, unknown>).items;
+    if (Array.isArray(items)) {
+      const clean = items.map((x: any) => ({ kind: String(x?.kind ?? ""), amount: Math.round(Number(x?.amount)) }))
+        .filter((x) => KINDS.includes(x.kind) && Number.isFinite(x.amount) && x.amount > 0 && x.amount < 1e9);
+      if (clean.length) extracted.items = clean;
+    }
+    const issuer = (b.data as Record<string, unknown>).issuer;
+    if (typeof issuer === "string" && issuer.trim()) extracted.issuer = issuer.trim().slice(0, 120);
   }
   const { data: d, error } = await userClient.from("documents").update({
     status: b.status, review_note: b.status === "rejected" ? note : null,

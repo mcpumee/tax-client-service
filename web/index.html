@@ -177,6 +177,11 @@
   .qs{border:1px dashed var(--line);border-radius:12px;padding:12px;margin-top:10px}
   .q + .q{margin-top:12px}
   .q-t{font-size:14px;margin-bottom:6px}
+
+  .ck-doc{font-size:14px;color:var(--muted);margin:-4px 0 6px}
+  .ck-issues{margin-top:10px}
+  .ck-issue{border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:12px;padding:12px;margin-top:8px;font-size:14px}
+  .ck-read{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
 </style>
 </head>
 <body>
@@ -331,6 +336,13 @@
     <p class="disc" id="r-disc"></p>
   </section>
 
+  <!-- ===== ผลตรวจเอกสาร (AI) ===== -->
+  <section id="v-check" class="card" hidden>
+    <div id="ck-body"></div>
+    <button data-go="upload">ส่งเอกสารเพิ่ม</button>
+    <button class="ghost" data-go="home">กลับหน้าหลัก</button>
+  </section>
+
   <!-- ===== ส่งเอกสาร ===== -->
   <section id="v-upload" class="card" hidden>
     <button class="back" data-go="home">‹ กลับ</button>
@@ -387,7 +399,7 @@ const CONFIG = {
 let session = null;
 
 const $ = (id) => document.getElementById(id);
-const VIEWS = ["v-loading","v-consent","v-form","v-result","v-home","v-upload","v-docs","v-me","v-plan","v-planres","v-health"];
+const VIEWS = ["v-loading","v-consent","v-form","v-result","v-home","v-upload","v-docs","v-me","v-plan","v-planres","v-health","v-check"];
 function show(id){ for (const v of VIEWS) $(v).hidden = v !== id; window.scrollTo(0,0); }
 function result(kind, title, text){
   const icon = $("r-icon");
@@ -614,20 +626,70 @@ $("u-send").onclick = async () => {
       uploaded_by: "client", status: "pending_review",
     }).select("id").single();
     if (dErr) throw dErr;
-    fn("doc-uploaded", { document_id: doc.id }, (await sb.auth.getSession()).data.session?.access_token).catch(() => {});
-    result("ok", "ส่งเอกสารเรียบร้อย", `${t.t} · ปีภาษี ${thYear(up.year)} — ผู้ให้บริการจะตรวจและแจ้งผลทาง LINE`);
-    $("r-btn").textContent = "ส่งเอกสารเพิ่ม"; $("r-btn").onclick = () => { $("r-btn").textContent = "กลับไปที่แชท"; $("r-btn").onclick = closeOrHome; go("upload"); };
+    await checkDocument(doc.id, t, up.year);
   } catch (err) {
     console.error(err);
     alert("ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   } finally { btn.textContent = "ส่งเอกสาร"; validateUpload(); }
 };
 
+
+// ---------- ตรวจเอกสารด้วย AI ทันทีหลังส่ง ----------
+const FIELD_T = { income: "เงินได้ทั้งปี", withheld: "ภาษีที่ถูกหัก", sso: "ประกันสังคม", pvd: "เงินสะสม PVD", amount: "ยอดเงิน" };
+const KIND_T = { life: "ประกันชีวิต", health: "ประกันสุขภาพ", pension: "ประกันบำนาญ", parentHealth: "ประกันสุขภาพพ่อแม่", spouseLife: "ประกันชีวิตคู่สมรส",
+  rmf: "RMF", esgx: "Thai ESGX", pvd: "PVD", gor: "กอช." };
+async function checkDocument(docId, t, year){
+  show("v-check");
+  $("ck-body").innerHTML = `<div class="center"><div class="spin"></div><h2>กำลังตรวจเอกสาร…</h2><p class="sub">ระบบกำลังอ่านเอกสาร ใช้เวลาไม่กี่วินาที</p></div>`;
+  const token = (await sb.auth.getSession()).data.session?.access_token;
+  let res = { ok: false, data: {} };
+  try { res = await Promise.race([fn("read-document", { document_id: docId }, token), new Promise((r) => setTimeout(() => r({ ok: false, data: {} }), 45000))]); } catch {}
+  fn("doc-uploaded", { document_id: docId }, token).catch(() => {});
+  countDocs();
+  const r = res.data || {};
+  const base = `<div class="ck-doc">${esc(t.ic)} ${esc(t.t)} · ปีภาษี ${thYear(year)}</div>`;
+  if (!res.ok || !r.ok) {
+    $("ck-body").innerHTML = `<div class="center"><div class="icon ok">✓</div><h2>ส่งเอกสารเรียบร้อย</h2>${base}<p class="sub">เจ้าหน้าที่จะตรวจและแจ้งผลทาง LINE</p></div>`;
+    return;
+  }
+  const d = r.data || {};
+  const rows = [];
+  for (const k of ["income", "withheld", "sso", "pvd", "amount"]) if (d[k]) rows.push([FIELD_T[k], baht(d[k])]);
+  for (const it of d.items || []) rows.push([KIND_T[it.kind] || it.kind, baht(it.amount)]);
+  if (d.kind) rows.push(["ประเภท", KIND_T[d.kind] || d.kind]);
+  if (d.issuer) rows.push(["ผู้ออกเอกสาร", d.issuer]);
+  const issues = r.issues || [];
+  const issueHtml = issues.map((i) => `<div class="ck-issue" data-code="${i.code}">
+      <div>⚠️ ${esc(i.msg)}</div>
+      <div class="adv-b">
+        ${i.code === "type_mismatch" ? `<button data-retype="${esc(i.suggest)}">เปลี่ยนเป็น ${esc((TYPE[i.suggest] || {}).t || i.suggest)}</button><button class="ghost" data-dismiss>ไม่ใช่ ใช้ประเภทเดิม</button>` : ""}
+        ${i.code === "year_mismatch" ? `<button data-reyear="${esc(i.suggest)}">เปลี่ยนเป็นปีภาษี ${(+i.suggest) + 543}</button><button class="ghost" data-dismiss>ใช้ปีเดิม</button>` : ""}
+        ${i.code === "unreadable" ? `<button data-go="upload">ถ่ายใหม่</button>` : ""}
+      </div></div>`).join("");
+  $("ck-body").innerHTML = `
+    <div class="center"><div class="icon ${issues.length ? "wait" : "ok"}">${issues.length ? "!" : "✓"}</div>
+      <h2>${issues.length ? "ส่งแล้ว แต่ควรตรวจสอบ" : "ส่งเอกสารเรียบร้อย"}</h2>${base}</div>
+    ${issueHtml ? `<div class="ck-issues">${issueHtml}</div>` : ""}
+    ${rows.length ? `<div class="ck-read"><div class="sub" style="margin:0 0 4px">ระบบอ่านได้ (รอเจ้าหน้าที่ยืนยัน)</div>
+      <div class="sum">${rows.map(([a, b]) => `<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}</div></div>` : ""}
+    <p class="disc">ตัวเลขจะถูกนำไปคำนวณสุขภาพภาษีหลังเจ้าหน้าที่ตรวจยืนยันแล้ว</p>`;
+  $("ck-body").onclick = async (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const box = b.closest(".ck-issue");
+    if (b.hasAttribute("data-dismiss")) { box.remove(); return; }
+    const body = b.dataset.retype ? { document_id: docId, doc_type: b.dataset.retype } : b.dataset.reyear ? { document_id: docId, tax_year: +b.dataset.reyear } : null;
+    if (!body) return;
+    b.disabled = true;
+    const x = await fn("doc-retype", body, (await sb.auth.getSession()).data.session?.access_token);
+    if (x.ok) { box.innerHTML = `<div>✅ แก้ไขแล้ว</div>`; } else { b.disabled = false; alert("แก้ไขไม่สำเร็จ"); }
+  };
+}
+
 // ---------- เอกสารของฉัน ----------
 let docs = [];
 async function loadDocs(){
   const { data, error } = await sb.from("documents")
-    .select("id, tax_year, doc_type, file_path, mime_type, status, review_note, created_at")
+    .select("id, tax_year, doc_type, file_path, mime_type, status, review_note, created_at, ai_issues")
     .order("created_at", { ascending: false }).limit(200);
   if (error) { $("d-list").innerHTML = `<div class="empty">โหลดไม่สำเร็จ</div>`; return; }
   docs = data;
@@ -635,7 +697,8 @@ async function loadDocs(){
     const t = TYPE[d.doc_type] || TYPE.other;
     return `<div class="doc" data-id="${d.id}"><div class="ic">${t.ic}</div>
       <div class="g"><b>${esc(t.t)}</b><small>ปีภาษี ${d.tax_year ? thYear(d.tax_year) : "–"} · ส่งเมื่อ ${fmt(d.created_at)}</small>
-      ${d.status === "rejected" && d.review_note ? `<div class="note">${esc(d.review_note)}</div>` : ""}</div>
+      ${d.status === "rejected" && d.review_note ? `<div class="note">${esc(d.review_note)}</div>` : ""}
+      ${d.status === "pending_review" && d.ai_issues?.length ? `<div class="note" style="color:var(--accent)">⚠️ ${esc(d.ai_issues[0].msg)}</div>` : ""}</div>
       <span class="st st-${d.status}">${STATUS_TH[d.status] || d.status}</span></div>`;
   }).join("") : `<div class="empty">ยังไม่มีเอกสาร</div>`;
 }
