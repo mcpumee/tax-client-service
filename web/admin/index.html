@@ -5,18 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://ufjxykraeybvvoaxdopn.supabase.co wss://ufjxykraeybvvoaxdopn.supabase.co; img-src 'self' data:; frame-ancestors 'none'">
-<title>หลังบ้าน | Mc Service</title>
+<title>หลังบ้าน | Tax Assistance</title>
+<link rel="icon" type="image/png" href="/brand/ta-mark-64.png">
+<link rel="apple-touch-icon" href="/brand/ta-mark-180.png">
+<meta name="theme-color" content="#26324a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --bg:#f6f5f1; --card:#fff; --ink:#1d2321; --muted:#66706c; --line:#e3e1da; --soft:#efede7;
-    --brand:#1f5c4a; --brand-ink:#fff; --accent:#a9822a; --danger:#b3261e; --ok:#1f7a4a;
+    --bg:#f5f4f0; --card:#ffffff; --ink:#1c2433; --muted:#667085; --line:#e4e2dc; --soft:#eeece6;
+    --brand:#26324a; --brand-ink:#ffffff; --accent:#b08a3e; --danger:#b3261e; --ok:#1f7a4a;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#121614; --card:#1b201e; --ink:#eef1ef; --muted:#9aa49f; --line:#2c3330; --soft:#232926;
-      --brand:#5fb394; --brand-ink:#0d1210; --accent:#d9b766; --danger:#ef8a82; --ok:#6fcf97; }
+    :root{ --bg:#121722; --card:#1b2230; --ink:#eef0f4; --muted:#9aa3b2; --line:#2b3342; --soft:#242c3b;
+      --brand:#d4b06a; --brand-ink:#121722; --accent:#d9b766; --danger:#ef8a82; --ok:#6fcf97; }
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Thai",system-ui,sans-serif;font-size:15px;line-height:1.5}
@@ -120,7 +123,8 @@
 <!-- ===== ล็อกอิน ===== -->
 <section id="v-login" class="auth" hidden>
   <form class="box" id="f-login">
-    <h1>หลังบ้าน Mc Service</h1>
+    <img src="/brand/ta-logo-512.png" alt="Tax Assistance" style="width:120px;height:120px;display:block;margin:0 auto 12px">
+    <h1 style="text-align:center">หลังบ้าน Tax Assistance</h1>
     <p>สำหรับผู้ดูแลระบบเท่านั้น</p>
     <label for="email">อีเมล</label><input id="email" type="email" autocomplete="username" required>
     <label for="pw">รหัสผ่าน</label><input id="pw" type="password" autocomplete="current-password" required>
@@ -159,7 +163,7 @@
 <!-- ===== หน้าหลัก ===== -->
 <section id="v-app" hidden>
   <div class="top"><div class="in">
-    <div class="mark">Mc</div><b>หลังบ้าน</b><span class="sp"></span>
+    <img src="/brand/ta-mark-64.png" alt="TA" width="32" height="32" style="border-radius:50%"><b>TA หลังบ้าน</b><span class="sp"></span>
     <button class="ghost" id="b-refresh">รีเฟรช</button>
     <button class="ghost" id="b-pw">รหัสผ่าน</button>
     <button class="ghost" id="b-logout">ออก</button>
@@ -269,7 +273,7 @@ async function startEnroll(){
   // ล้าง factor ที่ยังไม่ยืนยันค้างไว้
   const { data: f } = await sb.auth.mfa.listFactors();
   for (const x of (f?.all || []).filter((x) => x.status !== "verified")) await sb.auth.mfa.unenroll({ factorId: x.id });
-  const { data, error } = await sb.auth.mfa.enroll({ factorType: "totp", friendlyName: "Mc Service Admin" });
+  const { data, error } = await sb.auth.mfa.enroll({ factorType: "totp", friendlyName: "Tax Assistance Admin" });
   if (error) { $("m-login").textContent = "ตั้งค่า 2FA ไม่สำเร็จ: " + error.message; return show("v-login"); }
   route.factorId = data.id;
   $("qr").src = data.totp.qr_code;

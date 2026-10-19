@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.line-scdn.net https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://ufjxykraeybvvoaxdopn.supabase.co wss://ufjxykraeybvvoaxdopn.supabase.co https://api.line.me https://liffsdk.line-scdn.net https://*.line.me; img-src 'self' data: blob: https://profile.line-scdn.net https://ufjxykraeybvvoaxdopn.supabase.co">
-<title>Mc Service | ภาษีบุคคลธรรมดา</title>
+<title>Tax Assistance | ที่ปรึกษาวางแผนภาษี</title>
+<link rel="icon" type="image/png" href="/brand/ta-mark-64.png">
+<link rel="apple-touch-icon" href="/brand/ta-mark-180.png">
+<meta name="theme-color" content="#26324a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
@@ -13,17 +16,18 @@
 <script src="taxcalc.js"></script>
 <style>
   :root{
-    --bg:#f6f5f1; --card:#ffffff; --ink:#1d2321; --muted:#66706c; --line:#e3e1da;
-    --brand:#1f5c4a; --brand-ink:#ffffff; --accent:#c8a24a; --danger:#b3261e; --ok:#1f7a4a;
+    --bg:#f5f4f0; --card:#ffffff; --ink:#1c2433; --muted:#667085; --line:#e4e2dc;
+    --brand:#26324a; --brand-ink:#ffffff; --accent:#b08a3e; --danger:#b3261e; --ok:#1f7a4a;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#121614; --card:#1b201e; --ink:#eef1ef; --muted:#9aa49f; --line:#2c3330;
-      --brand:#5fb394; --brand-ink:#0d1210; --accent:#d9b766; --danger:#ef8a82; --ok:#6fcf97; }
+    :root{ --bg:#121722; --card:#1b2230; --ink:#eef0f4; --muted:#9aa3b2; --line:#2b3342;
+      --brand:#d4b06a; --brand-ink:#121722; --accent:#d9b766; --danger:#ef8a82; --ok:#6fcf97; }
   }
   *{box-sizing:border-box}
   html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Thai",system-ui,sans-serif;font-size:16px;line-height:1.55}
   main{max-width:520px;margin:0 auto;padding:20px 16px calc(32px + env(safe-area-inset-bottom))}
   header{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .logo{width:44px;height:44px;border-radius:50%;flex:none;box-shadow:0 0 0 2px var(--card),0 0 0 3px color-mix(in srgb,var(--brand) 40%,transparent)}
   .mark{width:36px;height:36px;border-radius:10px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:600}
   header h1{font-size:17px;margin:0;font-weight:600}
   header p{margin:0;font-size:13px;color:var(--muted)}
@@ -97,8 +101,9 @@
   dl.info dt{color:var(--muted)} dl.info dd{margin:0;word-break:break-word}
   .empty{color:var(--muted);text-align:center;padding:20px 0;font-size:14px}
 
-  .tile.hero{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
-  .tile.hero small{color:color-mix(in srgb,var(--brand-ink) 80%,transparent)}
+  .tile.hero{background:linear-gradient(135deg,#26324a,#3a4a68);color:#fff;border-color:transparent}
+  .tile.hero .em{filter:none}
+  .tile.hero small{color:#e6d3a3}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .sec-t{font-size:15px;font-weight:600;margin:20px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
   .sec-t:first-of-type{border-top:0;padding-top:0}
@@ -129,8 +134,8 @@
 <body>
 <main>
   <header>
-    <div class="mark">Mc</div>
-    <div><h1>Mc Service</h1><p>บริการยื่นภาษีบุคคลธรรมดา</p></div>
+    <img class="logo" src="/brand/ta-mark-96.png" alt="Tax Assistance" width="44" height="44">
+    <div><h1>Tax Assistance</h1><p>ที่ปรึกษาวางแผนภาษีและการเงิน</p></div>
   </header>
 
   <!-- กำลังโหลด -->

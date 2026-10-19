@@ -33,7 +33,7 @@ export async function pushLine(
 }
 
 // ปุ่มลิงก์แบบ Flex เรียบ ๆ
-export function card(title: string, lines: string[], button?: { label: string; uri: string }, color = "#1f5c4a") {
+export function card(title: string, lines: string[], button?: { label: string; uri: string }, color = "#26324a") {
   return {
     type: "flex",
     altText: title,
