@@ -472,7 +472,7 @@ async function openApp(){
   $("h-code").textContent = `รหัสลูกค้า ${me.client_code || "–"}`;
   buildUploadForm();
   const page = new URLSearchParams(location.search).get("p");
-  go(["upload","docs","me","plan"].includes(page) ? page : "home");
+  go(["upload","docs","me","plan","health"].includes(page) ? page : "home");
   countDocs();
 }
 function go(page){
@@ -481,6 +481,7 @@ function go(page){
   else if (page === "docs") { show("v-docs"); loadDocs(); }
   else if (page === "me") { renderMe(); show("v-me"); }
   else if (page === "plan") { openPlan(); }
+  else if (page === "health") { openHealth(); }
 }
 document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) go(g.dataset.go); });
 
@@ -722,6 +723,11 @@ function renderPlanResult(r){
   $("r-disc").textContent = "* เป็นการประมาณการจากข้อมูลที่กรอก สำหรับเงินได้ประเภทเงินเดือน/ค่าจ้าง (ม.40(1)–(2)) " +
     "ยังไม่รวมเงินได้ประเภทอื่น ผลจริงขึ้นกับเอกสารและการยื่นแบบ · " + r.notes.join(" · ");
   show("v-planres");
+}
+// สุขภาพภาษี (ชั่วคราว: ถ้าเคยกรอกแล้วแสดงผลทันที ไม่งั้นเปิดฟอร์ม) — หน้า Overview เต็มจะมาแทน
+async function openHealth(){
+  await openPlan();
+  if (planLoaded[planYear]) $("f-plan").requestSubmit();
 }
 // ลดหย่อนเพิ่มเท่าไรจึงไม่ต้องจ่ายเพิ่ม (ภาษี ≤ ที่ถูกหักไว้)
 function needForNoPay(r){
