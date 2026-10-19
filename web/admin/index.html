@@ -183,6 +183,7 @@
         <button data-s="inactive">ระงับ</button>
         <button data-s="all">ทั้งหมด</button>
         <button data-s="docs">เอกสารรอตรวจ</button>
+        <button data-s="chat">คำถามลูกค้า</button>
         <button data-s="sales">โอกาสขาย</button>
       </div>
       <input id="q" type="search" placeholder="ค้นหาชื่อ เบอร์โทร รหัสลูกค้า">
@@ -324,6 +325,7 @@ async function loadSummary(){
 async function loadList(){
   if (filter === "docs") return loadPendingDocs();
   if (filter === "sales") return loadSales();
+  if (filter === "chat") return loadChat();
   let q = sb.from("clients").select("id, client_code, title, first_name, last_name, phone, status, created_at, national_id_last4").order("created_at", { ascending: false }).limit(500);
   if (filter !== "all") q = q.eq("status", filter);
   const { data, error } = await q;
@@ -331,7 +333,7 @@ async function loadList(){
   clients = data; renderList();
 }
 function renderList(){
-  if (filter === "docs" || filter === "sales") return;
+  if (filter === "docs" || filter === "sales" || filter === "chat") return;
   const t = $("q").value.trim().toLowerCase();
   const rows = clients.filter((c) => !t || [c.first_name, c.last_name, c.phone, c.client_code].some((v) => (v || "").toLowerCase().includes(t)));
   if (!rows.length) { $("list").innerHTML = `<div class="empty">ไม่มีรายการ</div>`; return; }
@@ -586,6 +588,43 @@ $("list").addEventListener("click", async (e) => {
   toast(b.dataset.st === "closed" ? "ปิดคำขอแล้ว" : "บันทึกว่าติดต่อแล้ว"); loadSales();
 }, true);
 
+
+// ---------- คำถามลูกค้าจากแชทบอท ----------
+const KIND_CHAT = { tax: "ถามเรื่องภาษี", staff: "ขอคุยเจ้าหน้าที่", app: "การใช้งาน" };
+async function loadChat(){
+  const [{ data: reqs, error }, { data: threads }] = await Promise.all([
+    sb.from("support_requests").select("id, line_user_id, client_id, kind, message, status, created_at, clients(first_name, last_name, client_code)")
+      .order("created_at", { ascending: false }).limit(200),
+    sb.from("chat_threads").select("line_user_id, bot_paused_until").gt("bot_paused_until", new Date().toISOString()),
+  ]);
+  if (error) { $("list").innerHTML = `<div class="empty">โหลดไม่สำเร็จ</div>`; return; }
+  const paused = new Map((threads || []).map((t) => [t.line_user_id, t.bot_paused_until]));
+  const row = (r) => `
+    <div class="item" ${r.client_id ? `data-id="${r.client_id}"` : ""}>
+      <div class="av">${r.kind === "tax" ? "💬" : "🙋"}</div>
+      <div class="grow"><div class="nm">${r.clients ? `${esc(r.clients.first_name)} ${esc(r.clients.last_name)}` : "ผู้ใช้ LINE (ยังไม่ลงทะเบียน)"}
+          <span class="meta">· ${esc(KIND_CHAT[r.kind] || r.kind)} · ${fmtDate(r.created_at)}</span></div>
+        <div class="meta">${r.message && r.message !== "ปรึกษาเจ้าหน้าที่" ? `"${esc(r.message)}"` : "(กดเมนูปรึกษาเจ้าหน้าที่)"}
+          ${r.status === "new" && paused.has(r.line_user_id) ? ` · 🤫 บอทพักถึง ${new Date(paused.get(r.line_user_id)).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}` : ""}</div></div>
+      ${r.status === "new" ? `<div class="act"><button class="ghost" data-chat="${r.id}" data-uid="${esc(r.line_user_id)}">ตอบแล้ว · เปิดบอท</button></div>` : `<span class="pill p-confirmed">เสร็จ</span>`}
+    </div>`;
+  const open = (reqs || []).filter((r) => r.status === "new"), done = (reqs || []).filter((r) => r.status !== "new").slice(0, 30);
+  $("list").innerHTML =
+    `<div class="sec-h">รอตอบ (${open.length}) — ตอบในแชท LINE OA</div>` + (open.map(row).join("") || `<div class="empty">ไม่มีคำถามค้าง 🎉</div>`) +
+    (done.length ? `<div class="sec-h">ล่าสุดที่ปิดแล้ว</div>` + done.map(row).join("") : "");
+}
+$("list").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-chat]"); if (!b) return;
+  e.stopPropagation();
+  b.disabled = true;
+  const now = new Date().toISOString();
+  const [a, c] = await Promise.all([
+    sb.from("support_requests").update({ status: "done", done_at: now }).eq("line_user_id", b.dataset.uid).eq("status", "new"),
+    sb.from("chat_threads").update({ bot_paused_until: null, updated_at: now }).eq("line_user_id", b.dataset.uid),
+  ]);
+  if (a.error || c.error) { b.disabled = false; return toast("บันทึกไม่สำเร็จ"); }
+  toast("ปิดเรื่องแล้ว · บอทกลับมาตอบลูกค้าคนนี้"); loadChat();
+}, true);
 
 const KIND_LABEL = { life:"ชีวิต", health:"สุขภาพ", pension:"บำนาญ", parentHealth:"สุขภาพพ่อแม่", spouseLife:"ชีวิตคู่สมรส", rmf:"RMF", esgx:"ESGX", pvd:"PVD", gor:"กอช." };
 const DATA_LABEL = { income:"เงินได้", withheld:"ภาษีหัก", sso:"ปกส.", pvd:"PVD", amount:"ยอด" };
