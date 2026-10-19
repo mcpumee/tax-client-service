@@ -149,6 +149,82 @@
     };
   }
 
-  const api = { RULES, calculate, taxOn, marginal, ssoFromSalary };
+  /* -------------------------------------------------------------------
+   * รวมข้อมูล: ตัวเลขจากเอกสารที่เจ้าหน้าที่ยืนยันแล้ว (doc) มาก่อน
+   * ไม่มีเอกสาร → ใช้ตัวเลขที่ลูกค้ากรอกเอง (self)
+   *
+   * extracted_data ต่อประเภทเอกสาร:
+   *   50tawi            { income, withheld, sso?, pvd? }
+   *   insurance_cert    { kind: life|health|pension|parentHealth|spouseLife, amount }
+   *   fund_cert         { kind: rmf|esgx|pvd|gor, amount }
+   *   mortgage_interest { amount }            → homeLoan
+   *   donation          { amount, double? }   → donation / donation2x
+   * ------------------------------------------------------------------- */
+  const n0 = (x) => Math.max(0, +x || 0);
+  function buildInput(plan, docs, year) {
+    plan = plan || {}; docs = docs || [];
+    const src = { income: null, withheld: null, sso: null, items: {} };
+    const d = { income: 0, withheld: 0, sso: 0, items: {}, donation: 0, donation2x: 0, n50: 0 };
+    for (const doc of docs) {
+      const x = doc.extracted_data || {};
+      if (doc.doc_type === "50tawi") { d.n50++; d.income += n0(x.income); d.withheld += n0(x.withheld); d.sso += n0(x.sso);
+        if (n0(x.pvd)) d.items.pvd = (d.items.pvd || 0) + n0(x.pvd); }
+      else if (doc.doc_type === "insurance_cert" || doc.doc_type === "fund_cert") { if (x.kind) d.items[x.kind] = (d.items[x.kind] || 0) + n0(x.amount); }
+      else if (doc.doc_type === "mortgage_interest") d.items.homeLoan = (d.items.homeLoan || 0) + n0(x.amount);
+      else if (doc.doc_type === "donation") { if (x.double) d.donation2x += n0(x.amount); else d.donation += n0(x.amount); }
+    }
+    const selfIncome = n0(plan.salary) * (n0(plan.months) || 12) + n0(plan.bonus);
+    const selfWht = n0(plan.wht) * (n0(plan.months) || 12) + n0(plan.whtx);
+    const pick = (docV, selfV, key) => { if (docV > 0) { src[key] = "doc"; return docV; } if (selfV > 0) { src[key] = "self"; return selfV; } return 0; };
+    const items = {};
+    const selfItems = plan.items || {};
+    const keys = new Set([...Object.keys(selfItems), ...Object.keys(d.items)]);
+    let claimed = 0, claimedNoDoc = 0;
+    for (const k of keys) {
+      if (d.items[k] > 0) { items[k] = d.items[k]; src.items[k] = "doc"; claimed++; }
+      else if (n0(selfItems[k]) > 0) { items[k] = n0(selfItems[k]); src.items[k] = "self"; claimed++; claimedNoDoc++; }
+    }
+    return {
+      input: {
+        year, income: pick(d.income, selfIncome, "income"), withheld: pick(d.withheld, selfWht, "withheld"),
+        spouseNoIncome: !!plan.spouseNoIncome, children: n0(plan.children), children2plus2018: n0(plan.children2plus2018),
+        parents: n0(plan.parents), maternity: n0(plan.maternity), sso: pick(d.sso, n0(plan.sso), "sso"),
+        items, donation: d.donation || n0(plan.donation), donation2x: d.donation2x || n0(plan.donation2x),
+      },
+      src, has50: d.n50 > 0, hasPlan: selfIncome > 0, claimed, claimedNoDoc,
+    };
+  }
+
+  /** คะแนนสุขภาพภาษี 0–100 */
+  function healthScore(built) {
+    const { input } = built;
+    const R = RULES[input.year] || RULES[2026];
+    const r = calculate(input);
+    // ภาษีถ้าไม่มีลดหย่อนเลือกได้ (มีแค่ส่วนตัว/ครอบครัว/ประกันสังคม)
+    const base = calculate({ ...input, items: {}, donation: 0, donation2x: 0 });
+    // เกณฑ์ "วางแผนดี": ใช้สิทธิประกันชีวิต/สุขภาพ/บำนาญเต็ม (+พ่อแม่/คู่สมรสถ้ามี)
+    // ไม่นับ RMF/ESGX/PVD เต็มเพดาน เพราะไม่ใช่ทุกคนจะลงทุนได้
+    if (!input.income) return { score: null, level: "nodata", parts: {}, r, minTax: r.tax, overpay: 0 };
+    const bench = ["life", "health", "pension"];
+    if (input.parents > 0) bench.push("parentHealth");
+    if (input.spouseNoIncome) bench.push("spouseLife");
+    const maxed = { ...input.items };
+    for (const k of bench) maxed[k] = (maxed[k] || 0) + (r.room[k] || 0);
+    const best = calculate({ ...input, items: maxed });
+    const span = base.tax - best.tax;
+    const util = r.tax === 0 ? 1 : span > 0 ? Math.min(1, Math.max(0, (base.tax - r.tax) / span)) : 1;
+    const A = 50 * util;
+    const B = (r.tax === 0 && r.withheld === 0) ? 20 : 20 * Math.max(0, 1 - Math.abs(r.diff) / Math.max(r.tax, 10000));
+    const C = 10 * (built.has50 ? 1 : 0) + 10 * (built.claimed ? (built.claimed - built.claimedNoDoc) / built.claimed : (built.has50 ? 1 : 0));
+    const D = (built.hasPlan || built.has50) ? 10 : 0;
+    const score = Math.round(A + B + C + D);
+    return {
+      score, level: score >= 80 ? "good" : score >= 60 ? "fair" : "poor",
+      parts: { deduct: Math.round(A), balance: Math.round(B), docs: Math.round(C), data: D },
+      r, minTax: best.tax, overpay: Math.max(0, r.tax - best.tax),
+    };
+  }
+
+  const api = { RULES, calculate, taxOn, marginal, ssoFromSalary, buildInput, healthScore };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.TaxCalc = api;
 })(typeof window !== "undefined" ? window : globalThis);

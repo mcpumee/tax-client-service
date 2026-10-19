@@ -129,6 +129,33 @@
   .sug .sv{color:var(--ok);font-weight:600;font-size:13.5px}
   .sug button{width:auto;margin:0;padding:8px 12px;font-size:13px;white-space:nowrap}
   .disc{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5}
+
+  .hero-score{display:flex;align-items:center;gap:16px}
+  .hs-t{flex:1;min-width:0}
+  .hs-lv{font-size:24px;font-weight:600;line-height:1.2}
+  .hs-save{display:inline-block;margin-top:8px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);font-weight:600;font-size:13.5px;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .kpi .lb{font-size:12.5px;color:var(--muted);display:flex;gap:4px;align-items:center;flex-wrap:wrap;min-height:20px}
+  .kpi b{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+  .kpi b.ok,.sim-out .ok{color:var(--ok)} .kpi b.bad,.sim-out .bad{color:var(--danger)}
+  .act{display:flex;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px;cursor:pointer}
+  .act:first-of-type{border-top:0}
+  .act div{flex:1}
+  .act .chev{color:var(--muted);font-size:20px}
+  .tag-doc,.tag-self{font-size:11px;padding:1px 7px;border-radius:999px;vertical-align:1px;margin-left:4px;white-space:nowrap;display:inline-block}
+  .tag-doc{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+  .tag-self{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted)}
+  .bar{margin-top:12px}
+  .bar-h{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;margin-bottom:5px}
+  .bar-h span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bar-t{height:8px;border-radius:8px;background:var(--line);overflow:hidden}
+  .bar-t i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--accent));border-radius:8px}
+  .sim-v{font-size:26px;font-weight:600;margin:14px 0 4px;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--accent);padding:0;border:0;background:transparent}
+  .sim-out{font-size:14.5px;margin-top:8px;min-height:42px}
+  .sim-out small{color:var(--muted)}
+  .spin{margin:30px auto}
 </style>
 </head>
 <body>
@@ -210,11 +237,20 @@
       <div><h2 id="h-name" style="margin:0"></h2><div class="code" id="h-code"></div></div>
     </div>
     <div class="tiles">
-      <button class="tile wide hero" data-go="plan"><span class="em">🧮</span><span>ต้องลดหย่อนไหม? ลดอะไรดี?<br><small id="h-plan">กรอกเงินเดือน รู้ผลทันทีว่าได้คืนหรือต้องจ่ายเพิ่ม</small></span></button>
+      <button class="tile wide hero" data-go="health"><span class="em">💚</span><span>สุขภาพภาษีของฉัน<br><small id="h-plan">ต้องลดหย่อนไหม เท่าไร ลดอะไรดี</small></span></button>
       <button class="tile wide" data-go="upload"><span class="em">📤</span><span>ส่งเอกสาร<br><small>ถ่ายรูปหรือเลือกไฟล์ 50 ทวิ ใบลดหย่อน ฯลฯ</small></span></button>
       <button class="tile" data-go="docs"><span class="em">🗂️</span>เอกสารของฉัน<small id="h-docs">–</small></button>
       <button class="tile" data-go="me"><span class="em">👤</span>ข้อมูลของฉัน<small>ข้อมูลผู้เสียภาษี</small></button>
     </div>
+  </section>
+
+  <!-- ===== สุขภาพภาษี ===== -->
+  <section id="v-health" hidden>
+    <div class="card" style="padding:14px 16px">
+      <button class="back" data-go="home" style="margin-bottom:8px">‹ หน้าหลัก</button>
+      <div class="chips" id="hl-year"></div>
+    </div>
+    <div id="hl-body"></div>
   </section>
 
   <!-- ===== วางแผนภาษี ===== -->
@@ -258,7 +294,7 @@
   <!-- ===== ผลวางแผนภาษี ===== -->
   <section id="v-planres" hidden>
     <div class="card">
-      <button class="back" data-go="plan">‹ แก้ไขข้อมูล</button>
+      <button class="back" data-go="health">‹ สุขภาพภาษี</button>
       <div class="sub" id="r-year" style="margin:0"></div>
       <div class="big" id="r-big"></div>
       <div id="r-bigsub" class="sub" style="margin:0"></div>
@@ -330,7 +366,7 @@ const CONFIG = {
 let session = null;
 
 const $ = (id) => document.getElementById(id);
-const VIEWS = ["v-loading","v-consent","v-form","v-result","v-home","v-upload","v-docs","v-me","v-plan","v-planres"];
+const VIEWS = ["v-loading","v-consent","v-form","v-result","v-home","v-upload","v-docs","v-me","v-plan","v-planres","v-health"];
 function show(id){ for (const v of VIEWS) $(v).hidden = v !== id; window.scrollTo(0,0); }
 function result(kind, title, text){
   const icon = $("r-icon");
@@ -644,9 +680,8 @@ function readPlan(){
 async function openPlan(){
   const y = new Date().getFullYear();
   chip($("p-year"), [y, y - 1].map((v) => ({ v, t: `ปีภาษี ${thYear(v)}` })), "year", async (v) => { planYear = +v; await loadPlan(); });
-  const def = new Date().getMonth() <= 2 ? 1 : 0;
-  [...$("p-year").children].forEach((x, i) => x.classList.toggle("on", i === def));
-  planYear = y - def;
+  if (planYear !== y && planYear !== y - 1) planYear = y - (new Date().getMonth() <= 2 ? 1 : 0);
+  [...$("p-year").children].forEach((x) => x.classList.toggle("on", +x.dataset.v === planYear));
   await loadPlan();
   show("v-plan");
 }
@@ -675,12 +710,12 @@ $("f-plan").addEventListener("submit", async (e) => {
   };
   const r = TaxCalc.calculate(input);
   lastCalc = r;
-  renderPlanResult(r);
   planLoaded[planYear] = v;
   const summary = { income: r.income, tax: r.tax, withheld: r.withheld, diff: r.diff, rate: r.rate, net: r.net,
     room: r.room, saveTop: r.suggestions.slice(0, 5).map((s) => ({ k: s.k, save: s.save, room: s.room })) };
   sb.from("client_tax_inputs").upsert({ client_id: me.id, tax_year: planYear, inputs: v, result: summary, updated_at: new Date().toISOString() })
     .then(({ error }) => { if (error) console.warn("save plan", error.message); });
+  renderHealth();
 });
 
 function renderPlanResult(r){
@@ -724,10 +759,174 @@ function renderPlanResult(r){
     "ยังไม่รวมเงินได้ประเภทอื่น ผลจริงขึ้นกับเอกสารและการยื่นแบบ · " + r.notes.join(" · ");
   show("v-planres");
 }
-// สุขภาพภาษี (ชั่วคราว: ถ้าเคยกรอกแล้วแสดงผลทันที ไม่งั้นเปิดฟอร์ม) — หน้า Overview เต็มจะมาแทน
+// =====================================================================
+// สุขภาพภาษี (Overview)
+// =====================================================================
+const docsByYear = {};
+const ITEM_T = Object.fromEntries((TaxCalc.RULES[2026].items).map((i) => [i.k, i.t]));
+const LEVEL = { good: ["ดีมาก", "#1f7a4a", "ใช้สิทธิลดหย่อนได้คุ้มค่าแล้ว"], fair: ["ควรปรับ", "#b08a3e", "ยังประหยัดภาษีได้อีก"], poor: ["ต้องดูแล", "#b3261e", "เสียภาษีมากกว่าที่ควร"] };
+let health = null, simKey = null;
+
 async function openHealth(){
-  await openPlan();
-  if (planLoaded[planYear]) $("f-plan").requestSubmit();
+  const y = new Date().getFullYear();
+  if (!$("hl-year").children.length) {
+    chip($("hl-year"), [y, y - 1].map((v) => ({ v, t: `ปีภาษี ${thYear(v)}` })), "year", async (v) => { planYear = +v; await loadHealthData(); renderHealth(); });
+    const def = new Date().getMonth() <= 2 ? 1 : 0;
+    planYear = y - def;
+  }
+  [...$("hl-year").children].forEach((x) => x.classList.toggle("on", +x.dataset.v === planYear));
+  show("v-health");
+  $("hl-body").innerHTML = `<div class="spin"></div>`;
+  await loadHealthData();
+  renderHealth();
+}
+async function loadHealthData(){
+  const tasks = [];
+  if (!(planYear in planLoaded)) tasks.push(sb.from("client_tax_inputs").select("inputs").eq("tax_year", planYear).maybeSingle()
+    .then(({ data }) => { planLoaded[planYear] = data?.inputs || null; }));
+  tasks.push(sb.from("documents").select("doc_type, extracted_data, status").eq("tax_year", planYear).eq("status", "confirmed")
+    .then(({ data }) => { docsByYear[planYear] = data || []; }));
+  await Promise.all(tasks);
+}
+function ring(score, color){
+  const r = 52, c = 2 * Math.PI * r, f = Math.max(0, Math.min(100, score)) / 100;
+  return `<svg viewBox="0 0 120 120" width="132" height="132" aria-hidden="true">
+    <circle cx="60" cy="60" r="${r}" fill="none" style="stroke:var(--line)" stroke-width="10"/>
+    <circle cx="60" cy="60" r="${r}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"
+      stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 60 60)"/>
+    <text x="60" y="60" text-anchor="middle" dominant-baseline="central" font-size="34" font-weight="600" style="fill:var(--ink)">${score}</text>
+    <text x="60" y="86" text-anchor="middle" font-size="11" style="fill:var(--muted)">/ 100</text></svg>`;
+}
+const srcTag = (src) => src === "doc" ? `<span class="tag-doc">✓ เอกสาร</span>` : src === "self" ? `<span class="tag-self">กรอกเอง</span>` : "";
+function renderHealth(){
+  if ($("v-health").hidden) show("v-health");
+  [...$("hl-year").children].forEach((x) => x.classList.toggle("on", +x.dataset.v === planYear));
+  const built = TaxCalc.buildInput(planLoaded[planYear], docsByYear[planYear], planYear);
+  const h = TaxCalc.healthScore(built);
+  health = { built, h };
+  const r = h.r, body = $("hl-body");
+  $("h-plan").textContent = h.score == null ? "ต้องลดหย่อนไหม เท่าไร ลดอะไรดี" : `คะแนน ${h.score}/100 · ${LEVEL[h.level][0]}`;
+
+  if (h.score == null) {
+    body.innerHTML = `
+      <div class="card center">
+        <div style="font-size:44px">🩺</div>
+        <h2>มาตรวจสุขภาพภาษีกัน</h2>
+        <p class="sub">ใช้เวลา 1 นาที กรอกเงินเดือนและภาษีที่บริษัทหัก หรือส่ง 50 ทวิ ให้เจ้าหน้าที่ตรวจ</p>
+        <button data-go="plan">กรอกเงินเดือน (1 นาที)</button>
+        <button class="ghost" data-go="upload">ส่ง 50 ทวิ แทน</button>
+      </div>`;
+    return;
+  }
+  const [lvT, lvC, lvS] = LEVEL[h.level];
+  const resTxt = r.tax === 0 && r.withheld === 0 ? ["ไม่ต้องเสียภาษี", "ok"]
+    : r.diff > 0 ? [`ได้คืน ${baht(r.diff)}`, "ok"] : r.diff < 0 ? [`จ่ายเพิ่ม ${baht(-r.diff)}`, "bad"] : ["พอดี", ""];
+
+  // ---- สิ่งที่ควรทำ ----
+  const acts = [];
+  const need = r.diff < 0 ? needForNoPay(r) : null;
+  if (need) acts.push({ ic: "⚠️", t: `ลดหย่อนเพิ่มอีก <b>${baht(need)} บาท</b> เพื่อไม่ต้องจ่ายภาษีเพิ่มตอนยื่น`, go: "sim" });
+  if (h.overpay > 0) acts.push({ ic: "💡", t: `ใช้สิทธิประกันที่ยังเหลือ ประหยัดได้อีก <b>~${baht(h.overpay)} บาท</b>`, go: "sim" });
+  if (!built.has50) acts.push({ ic: "📄", t: `ส่ง <b>50 ทวิ ปี ${thYear(planYear)}</b> ให้เจ้าหน้าที่ตรวจ ตัวเลขจะแม่นขึ้น`, go: "upload" });
+  if (built.claimedNoDoc > 0) acts.push({ ic: "🧾", t: `ส่งหลักฐานลดหย่อนที่ยังไม่มีเอกสาร <b>${built.claimedNoDoc} รายการ</b>`, go: "upload" });
+  const now = new Date();
+  if (planYear === now.getFullYear() && r.tax > 0) {
+    const days = Math.ceil((new Date(now.getFullYear(), 11, 31, 23, 59) - now) / 86400000);
+    if (days >= 0) acts.push({ ic: "⏳", t: `อีก <b>${days} วัน</b> หมดเขตซื้อประกัน/กองทุนลดหย่อนของปีนี้ (31 ธ.ค.)`, go: "sim" });
+  }
+  if (!acts.length) acts.push({ ic: "✅", t: "ทุกอย่างเรียบร้อย ไม่มีอะไรต้องทำเพิ่ม", go: null });
+
+  // ---- แถบลดหย่อน ----
+  const R = TaxCalc.RULES[planYear] || TaxCalc.RULES[2026];
+  const used = Object.fromEntries(r.lines.map((l) => [l.k, l]));
+  const showKeys = ["sso", "life", "health", "pension", ...R.items.map((i) => i.k).filter((k) => !["life","health","pension"].includes(k) && used[k])];
+  if (built.input.parents > 0) showKeys.splice(4, 0, "parentHealth");
+  const bars = [...new Set(showKeys)].map((k) => {
+    const it = R.items.find((i) => i.k === k);
+    const cap = k === "sso" ? R.sso.cap : Math.round(Math.min(it.cap, it.pct ? r.income * it.pct : Infinity));
+    const u = used[k]?.amt || 0, pct = cap ? Math.min(100, (u / cap) * 100) : 0;
+    const t = k === "sso" ? "ประกันสังคม" : it.t;
+    const src = k === "sso" ? built.src.sso : built.src.items[k];
+    return `<div class="bar"><div class="bar-h"><span>${esc(t)} ${srcTag(src)}</span><span>${baht(u)} / ${baht(cap)}</span></div>
+      <div class="bar-t"><i style="width:${pct.toFixed(1)}%"></i></div></div>`;
+  }).join("");
+
+  // ---- ตัวจำลอง ----
+  const simOpts = ["pension", "life", "health", "parentHealth", "rmf", "esgx"].filter((k) => (r.room[k] || 0) > 0 && (k !== "parentHealth" || built.input.parents > 0));
+  if (!simOpts.includes(simKey)) simKey = simOpts[0] || null;
+
+  body.innerHTML = `
+    <div class="card hero-score">
+      ${ring(h.score, lvC)}
+      <div class="hs-t">
+        <div class="sub" style="margin:0">สุขภาพภาษี</div><div class="hs-lv" style="color:${lvC}">${lvT}</div>
+        <div class="sub" style="margin:2px 0 0">${lvS}</div>
+        ${h.overpay > 0 ? `<div class="hs-save">ประหยัดได้อีก ~${baht(h.overpay)} บาท</div>` : ""}
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="lb">เงินได้ทั้งปี ${srcTag(built.src.income)}</div><b>${baht(r.income)}</b></div>
+      <div class="kpi"><div class="lb">ภาษีที่ต้องเสีย</div><b>${baht(r.tax)}</b></div>
+      <div class="kpi"><div class="lb">ถูกหักไว้แล้ว ${srcTag(built.src.withheld)}</div><b>${baht(r.withheld)}</b></div>
+      <div class="kpi"><div class="lb">ตอนยื่นภาษี</div><b class="${resTxt[1]}">${resTxt[0]}</b></div>
+    </div>
+    <div class="card">
+      <h2 style="font-size:16px">สิ่งที่ควรทำ</h2>
+      ${acts.map((a) => `<div class="act" ${a.go ? `data-hgo="${a.go}"` : ""}><span>${a.ic}</span><div>${a.t}</div>${a.go ? `<span class="chev">›</span>` : ""}</div>`).join("")}
+    </div>
+    ${simKey ? `<div class="card" id="sim">
+      <h2 style="font-size:16px">ลองคำนวณ: ถ้าซื้อเพิ่ม จะประหยัดเท่าไร</h2>
+      <div class="chips" id="sim-k">${simOpts.map((k) => `<button type="button" class="chip ${k === simKey ? "on" : ""}" data-v="${k}">${esc(ITEM_T[k])}</button>`).join("")}</div>
+      <div class="sim-v"><span id="sim-amt">0</span> บาท</div>
+      <input type="range" id="sim-r" min="0" step="1000" value="0">
+      <div class="sim-out" id="sim-out"></div>
+      <button class="ghost" id="sim-lead" hidden>💬 สนใจ คุยกับเจ้าหน้าที่เรื่องนี้</button>
+    </div>` : ""}
+    <div class="card">
+      <h2 style="font-size:16px">ค่าลดหย่อนที่ใช้แล้ว</h2>
+      ${bars}
+      <p class="disc" style="margin-top:10px">✓ เอกสาร = ตัวเลขจากเอกสารที่เจ้าหน้าที่ตรวจแล้ว · กรอกเอง = ประมาณการ</p>
+    </div>
+    <button data-go="plan">✏️ แก้ไขข้อมูลรายได้ / ลดหย่อน</button>
+    <button class="ghost" id="hl-detail">ดูรายละเอียดการคำนวณ</button>
+    <p class="disc">* ประมาณการสำหรับเงินได้ประเภทเงินเดือน/ค่าจ้าง (ม.40(1)–(2)) ผลจริงขึ้นกับเอกสารและการยื่นแบบ</p>`;
+
+  $("hl-detail").onclick = () => { lastCalc = r; renderPlanResult(r); };
+  body.querySelectorAll("[data-hgo]").forEach((el) => el.onclick = () => {
+    const g = el.dataset.hgo;
+    if (g === "sim") $("sim")?.scrollIntoView({ behavior: "smooth", block: "center" }); else go(g);
+  });
+  if (simKey) setupSim();
+}
+function setupSim(){
+  const { built, h } = health, r = h.r;
+  const slider = $("sim-r");
+  const apply = () => {
+    const room = r.room[simKey] || 0;
+    slider.max = String(Math.ceil(room / 1000) * 1000);
+    const amt = Math.min(+slider.value, room);
+    const items = { ...built.input.items, [simKey]: (built.input.items[simKey] || 0) + amt };
+    const nr = TaxCalc.calculate({ ...built.input, items });
+    const save = r.tax - nr.tax;
+    $("sim-amt").textContent = baht(amt);
+    const res = nr.diff > 0 ? `ได้คืน <b class="ok">${baht(nr.diff)}</b> บาท` : nr.diff < 0 ? `ยังต้องจ่ายเพิ่ม <b class="bad">${baht(-nr.diff)}</b> บาท` : "ไม่ต้องจ่ายเพิ่ม";
+    $("sim-out").innerHTML = amt
+      ? `ภาษีลดลง <b class="ok">${baht(save)}</b> บาท · ตอนยื่น: ${res}<br><small>เหลือสิทธิ ${esc(ITEM_T[simKey])} อีก ${baht(room - amt)} บาท</small>`
+      : `<small>เลื่อนแถบเพื่อดูว่าซื้อ ${esc(ITEM_T[simKey])} เพิ่มแล้วจะประหยัดภาษีเท่าไร (เหลือสิทธิ ${baht(room)} บาท)</small>`;
+    const lead = $("sim-lead");
+    lead.hidden = !(SELL_TOPIC[simKey] && amt > 0);
+    lead.dataset.lead = simKey; lead.dataset.save = String(save);
+    lead.disabled = false; lead.textContent = "💬 สนใจ คุยกับเจ้าหน้าที่เรื่องนี้";
+  };
+  slider.value = String(Math.min(r.room[simKey] || 0, Math.ceil((r.toLower || r.toZero || 0) / 1000) * 1000) || 0);
+  slider.oninput = apply;
+  $("sim-k").onclick = (e) => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    simKey = b.dataset.v;
+    [...$("sim-k").children].forEach((x) => x.classList.toggle("on", x === b));
+    slider.value = "0"; apply();
+  };
+  apply();
 }
 // ลดหย่อนเพิ่มเท่าไรจึงไม่ต้องจ่ายเพิ่ม (ภาษี ≤ ที่ถูกหักไว้)
 function needForNoPay(r){

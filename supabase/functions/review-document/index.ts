@@ -20,15 +20,29 @@ Deno.serve(async (req) => {
   if (st !== "ok") return json(req, { error: "forbidden" }, 403);
   const { data: { user } } = await userClient.auth.getUser();
 
-  let b: { document_id?: string; status?: string; note?: string; notify?: boolean };
+  let b: { document_id?: string; status?: string; note?: string; notify?: boolean; data?: Record<string, unknown> };
   try { b = await req.json(); } catch { return json(req, { error: "bad_json" }, 400); }
   if (!b.document_id || !["confirmed", "rejected", "pending_review"].includes(b.status ?? "")) return json(req, { error: "validation" }, 422);
   const note = (b.note ?? "").trim().slice(0, 300) || null;
   if (b.status === "rejected" && !note) return json(req, { error: "note_required" }, 422);
 
+  // ตัวเลขที่เจ้าหน้าที่อ่านจากเอกสาร (ใช้ในหน้าสุขภาพภาษี) — รับเฉพาะคีย์ที่รู้จัก
+  const KINDS = ["life", "health", "pension", "parentHealth", "spouseLife", "rmf", "esgx", "pvd", "gor"];
+  let extracted: Record<string, unknown> | undefined;
+  if (b.status === "confirmed" && b.data && typeof b.data === "object") {
+    extracted = {};
+    for (const k of ["income", "withheld", "sso", "pvd", "amount"]) {
+      const v = Math.round(Number((b.data as Record<string, unknown>)[k]));
+      if (Number.isFinite(v) && v > 0 && v < 1e9) extracted[k] = v;
+    }
+    const kind = String((b.data as Record<string, unknown>).kind ?? "");
+    if (KINDS.includes(kind)) extracted.kind = kind;
+    if ((b.data as Record<string, unknown>).double === true) extracted.double = true;
+  }
   const { data: d, error } = await userClient.from("documents").update({
     status: b.status, review_note: b.status === "rejected" ? note : null,
     reviewed_at: new Date().toISOString(), reviewed_by: user?.id ?? null,
+    ...(extracted ? { extracted_data: extracted } : {}),
   }).eq("id", b.document_id).select("id, client_id, doc_type, tax_year").single();
   if (error || !d) return json(req, { error: "update_failed" }, 500);
 
@@ -39,7 +53,7 @@ Deno.serve(async (req) => {
     if (c?.line_user_id) {
       const label = `${DOC_LABEL[d.doc_type] ?? d.doc_type} · ปีภาษี ${thYear(d.tax_year)}`;
       const msg = b.status === "confirmed"
-        ? card("ตรวจเอกสารเรียบร้อย ✅", [`เรียนคุณ${c.first_name}`, label, "เอกสารนี้ใช้ยื่นภาษีได้"])
+        ? card("ตรวจเอกสารเรียบร้อย ✅", [`เรียนคุณ${c.first_name}`, label, "เอกสารนี้ใช้ยื่นภาษีได้ — อัปเดตสุขภาพภาษีแล้ว"], { label: "ดูสุขภาพภาษี", uri: `${LIFF_URL}?p=health` })
         : card("ขอเอกสารใหม่", [`เรียนคุณ${c.first_name}`, label, `เหตุผล: ${note}`],
             { label: "ส่งเอกสารใหม่", uri: `${LIFF_URL}?p=upload` }, "#8a5a00");
       notified = await pushLine(admin, c.line_user_id, [msg], { client_id: d.client_id, recipient: "client", kind: `doc_${b.status}` });
