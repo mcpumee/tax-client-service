@@ -224,12 +224,14 @@ async function handle(db: SupabaseClient, ev: any) {
   if (ev.source?.type !== "user" || !ev.replyToken || ev.mode === "standby") return;
   if (ev.type !== "message") return;                       // follow ใช้ข้อความต้อนรับของ OA Manager
   const uid: string = ev.source.userId;
-  const [{ data: client }, { data: thread }] = await Promise.all([
+  const [{ data: client }, { data: thread }, { data: adm }] = await Promise.all([
     db.from("clients").select("id, client_code, first_name, last_name, status").eq("line_user_id", uid).maybeSingle(),
     db.from("chat_threads").select("line_user_id, bot_paused_until, last_admin_ping").eq("line_user_id", uid).maybeSingle(),
+    db.from("admins").select("user_id").eq("line_user_id", uid).limit(1),
   ]);
   const s: Status = (client?.status as Status) ?? "none";
-  const paused = thread?.bot_paused_until && new Date(thread.bot_paused_until) > new Date();
+  const isAdmin = !!adm?.length;                           // admin ทดสอบเอง: บอทไม่พัก
+  const paused = !isAdmin && thread?.bot_paused_until && new Date(thread.bot_paused_until) > new Date();
   const m = ev.message;
 
   if (m.type !== "text") {
